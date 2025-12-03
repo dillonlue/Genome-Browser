@@ -239,26 +239,72 @@ Similarly, a mean baseline or mean imputation uses a single fixed vector or the 
 In both cases, the masked predictor $S \mapsto f(x; S)$ is anchored to off-manifold or weakly informative reference points, so the induced value function $v(S)$ can deviate substantially from how $f$ behaves on realistic inputs.
 As a result, Shapley attributions built on zero or mean baselines may emphasise artefacts of the chosen reference rather than faithfully capturing how the original model uses its features across the data distribution.
 
-\section{Computational Challenges}
+\section{Computational Challenges and Practical Approximations}
 
-Computing exact Shapley values faces two fundamental \textbf{computational bottlenecks}:
-
-\subsection{Value Function Evaluation}
-
-Each evaluation of $v(S)$ requires computing the model's expected output when only features in $S$ are known.
-For \textbf{conditional expectation}, this requires estimating $P(X_{N \setminus S} | X_S = x_S)$, which becomes intractable for high-dimensional features or complex dependencies.
-For \textbf{marginal expectation}, each $v(S)$ evaluation requires multiple model forward passes to average over sampled values of unknown features.
-With $n$ features, there are $2^n$ possible coalitions $S$, each requiring potentially expensive value function computation.
-The total computational cost grows as $O(2^n \cdot m \cdot C_f)$ where $m$ is the number of samples for expectation estimation and $C_f$ is the cost of one model evaluation.
+In the SHAP setting we work with the permutation-based definition of the Shapley value, since it matches how most practical algorithms operate (they follow a random feature ordering and add features one at a time).
+For a fixed input $x$ and feature $i$, this can be written as
+\[
+\phi_i(x)
+= \frac{1}{n!} \sum_{\pi \in \Pi(N)}
+\Bigl[ f\bigl(x; S_\pi^i \cup \{i\}\bigr) - f\bigl(x; S_\pi^i\bigr) \Bigr],
+\]
+where $\Pi(N)$ is the set of all permutations of $N = \{1,\dots,n\}$ and $S_\pi^i$ is the set of features that appear before $i$ under permutation $\pi$.
+This “add features along a random ordering” view makes clear what must be computed and where the cost arises.
 
 \subsection{Summation Over Permutations}
 
-The Shapley value formula requires considering all $n!$ permutations or equivalently all $2^{n-1}$ coalitions that feature $i$ can join.
-For the permutation formulation $\phi_i(v) = \frac{1}{n!} \sum_{\pi \in \Pi(N)} [v(S_\pi^i \cup \{i\}) - v(S_\pi^i)]$, exact computation requires $O(n!)$ evaluations.
-For the coalition formulation $\phi_i(v) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|! (n - |S| - 1)!}{n!} [v(S \cup \{i\}) - v(S)]$, we need $O(2^n)$ evaluations.
-Both formulations become computationally prohibitive for even modest numbers of features (e.g., $n > 20$).
+The first bottleneck is the summation over permutations.
+The exact Shapley formula involves $n!$ permutations for each feature $i$, and for each permutation $\pi$ we must evaluate the difference
+\[
+f\bigl(x; S_\pi^i \cup \{i\}\bigr) - f\bigl(x; S_\pi^i\bigr).
+\]
+This factorial dependence on $n$ quickly becomes infeasible as the number of features grows.
 
-These challenges motivate \textbf{approximation methods} including Monte Carlo sampling of permutations, limiting to local neighborhoods of features, and model-specific optimizations that exploit structure in $f$.
+In practice, permutation-based SHAP implementations approximate this sum by drawing a limited number of random permutations and averaging the corresponding marginal contributions along each ordering.
+For deep networks, DeepSHAP methods approximate the same permutation sum more aggressively by exploiting the compositional structure of the network: they use DeepLIFT-style forward and backward rules to collapse the contribution of all permutations into a single forward and backward pass per background example, yielding an efficient approximation to the Shapley values without explicitly enumerating permutations.
+
+\subsection{Masked Predictor Evaluation}
+
+The second bottleneck concerns the cost of evaluating the masked predictor $f(x; S)$ itself.
+Each term in the permutation sum requires computing
+\[
+f\bigl(x; S_\pi^i\bigr)
+\quad\text{and}\quad
+f\bigl(x; S_\pi^i \cup \{i\}\bigr)
+\]
+for some coalition $S_\pi^i$.
+Let $C_{\text{mask}}$ denote the cost of a single masked evaluation; then
+\[
+\text{total cost}
+= \bigl(\text{number of masked evaluations}\bigr) \times C_{\text{mask}}.
+\]
+The value of $C_{\text{mask}}$ depends entirely on how $f(x; S)$ is defined:
+
+\begin{itemize}
+  \item \textbf{Fixed baseline substitution / mean imputation.}
+  Missing features are replaced by a fixed reference input (zeros, feature-wise means, or a hand-crafted baseline), so $f(x; S)$ is obtained with a single forward pass of the original model $f$.
+  In this case $C_{\text{mask}}$ is essentially the cost of ordinary prediction.
+
+  \item \textbf{Marginal (interventional) expectation.}
+  Missing features are sampled independently from a background dataset drawn from the training distribution.
+  In practice one chooses a finite set of background points $\{x^{(b)}\}_{b=1}^B$ and approximates
+  \[
+  f(x; S)
+  \approx \frac{1}{B} \sum_{b=1}^B f\bigl(x_S, x^{(b)}_{N \setminus S}\bigr),
+  \]
+  which requires $B$ forward passes of $f$ for each coalition $S$.
+  Here $C_{\text{mask}}$ scales linearly with the number of background samples $B$.
+
+  \item \textbf{Conditional expectation.}
+  The conditional semantics
+  \[
+  f(x; S)
+  = \mathbb{E}\bigl[f(x_S, X_{N \setminus S}) \mid X_S = x_S\bigr]
+  \]
+  require access to the conditional distribution $P(X_{N \setminus S} \mid X_S = x_S)$.
+  Estimating this conditional typically entails training an additional high-dimensional imputation or generative model for $X$ and then drawing conditional samples for each coalition $S$, which substantially increases $C_{\text{mask}}$ beyond the cost of running $f$ itself.
+  Because of this extra modelling burden and computational overhead, such conditional estimators are rarely used in mainstream SHAP workflows, which overwhelmingly adopt the simpler marginal or baseline-based semantics described above.
+\end{itemize}
 
 \section{Mask-Aware Shapley Attribution}
 
