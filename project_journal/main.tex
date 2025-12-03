@@ -3,7 +3,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 
-\title{Shapley Values}
+\title{Mask-Aware Shapley Attribution}
 \author{}
 \date{}
 
@@ -220,6 +220,8 @@ Several standard choices for this rule appear in the SHAP literature:
     Unknown features follow their conditional distribution given $X_S = x_S$, which properly accounts for feature correlations but requires modeling $P(X_{N \setminus S} \mid X_S)$ in high dimensions.
 \end{enumerate}
 
+A mask-aware approach—detailed in the closing section—replaces these ad hoc choices with a learned semantics of missingness. By exposing the model to random masks during training, we define $f(x; S)$ directly through a mask channel rather than through hybrids built from external backgrounds. This keeps $f(x; S)$ on-manifold, makes $f(x; \emptyset)$ an in-model baseline, and gives access to the conditional behaviour the Shapley value requires without separately estimating $P(X_{N \setminus S} \mid X_S)$.
+
 From a prediction point of view, the \textbf{conditional expectation} definition yields the most faithful notion of prediction when only a subset of features is known.
 Let $X$ denote the random input vector with distribution $P(X)$ and consider predicting the scalar response $f(X)$ under squared error loss when only $X_S$ is observed.
 The prediction that minimises the expected squared error given $X_S = x_S$ is
@@ -258,328 +260,32 @@ Both formulations become computationally prohibitive for even modest numbers of 
 
 These challenges motivate \textbf{approximation methods} including Monte Carlo sampling of permutations, limiting to local neighborhoods of features, and model-specific optimizations that exploit structure in $f$.
 
-\section{Worked Example: Exact Shapley Values for a Boolean Model}
-\label{sec:toy_example}
+\section{Mask-Aware Shapley Attribution}
 
-To illustrate the Shapley framework in a simple, fully tractable setting, we
-consider a synthetic example with three binary inputs and a single scalar
-output. This example serves as a bridge between the classical coalitional game
-view and the feature attribution view in machine learning.
+Motivated by the masking semantics and computational issues above, we now outline a mask-aware approach to Shapley-value feature attribution in which the model itself learns how to interpret missing features. The aim is to remove the dependence on arbitrary background distributions, keep all evaluations in-distribution, and make the notion of ``feature absence'' an explicit, learned part of the predictor.
 
-\subsection{Boolean Function with Three Inputs}
+\subsection{Problem: Defining Feature Absence}
 
-Let the input space be $\{0,1\}^3$, and define the Boolean function
-$f : \{0,1\}^3 \to \{0,1\}$ by
-\begin{equation}
-  f(x_1, x_2, x_3) = (x_1 \oplus x_2) \land x_3,
-\end{equation}
-where $\oplus$ denotes the XOR (exclusive OR) operator and $\land$ denotes the
-logical AND. Thus $f(x) = 1$ only when
-\begin{itemize}
-  \item $x_3 = 1$, and
-  \item exactly one of $x_1, x_2$ equals $1$.
-\end{itemize}
+Traditional Shapley methods (e.g., SHAP, Captum ShapleyValueSampling) rely on an external rule to decide what a ``missing'' feature means: zeros, training-set averages, or samples from a background distribution. Because typical models are trained only on fully observed inputs, masking features at attribution time produces off-manifold hybrids and makes the resulting Shapley values sensitive to the chosen background rather than to the model's internal semantics. The consequence is that we do not evaluate the conditional distribution the model should follow when only a subset of features is observed.
 
-The full truth table is given in Table~\ref{tab:boolean_truth}.
+\subsection{Core Idea}
 
-\begin{table}[h]
-  \centering
-  \begin{tabular}{ccc|c|c}
-    $x_1$ & $x_2$ & $x_3$ & $x_1 \oplus x_2$ & $f(x_1,x_2,x_3)$ \\
-    \hline
-    0 & 0 & 0 & 0 & 0 \\
-    0 & 0 & 1 & 0 & 0 \\
-    0 & 1 & 0 & 1 & 0 \\
-    0 & 1 & 1 & 1 & 1 \\
-    1 & 0 & 0 & 1 & 0 \\
-    1 & 0 & 1 & 1 & 1 \\
-    1 & 1 & 0 & 0 & 0 \\
-    1 & 1 & 1 & 0 & 0 \\
-  \end{tabular}
-  \caption{Truth table for $f(x_1,x_2,x_3) = (x_1 \oplus x_2) \land x_3$.}
-  \label{tab:boolean_truth}
-\end{table}
+Train a predictive model that is explicitly aware of feature masking, so that absence has a defined, learned meaning inside the model. Then compute Shapley values directly through this mask interface—without any external background distribution.
 
-We will interpret the three features $(x_1,x_2,x_3)$ as the players in a
-coalitional game, and the \textbf{value function} $v(S)$ as the model output
-when only the features in $S \subseteq N = \{1,2,3\}$ are ``active'', with
-the remaining features fixed to a baseline.
+\subsection{Proposed Solution}
 
-\subsection{Neural Network Approximation}
-
-In practice, instead of working directly with a Boolean function $f$, we often
-have a learned model $f_\theta$ (e.g.\ a neural network) that approximates $f$.
-For concreteness, consider a small multi-layer perceptron (MLP) with one hidden
-layer:
-\begin{align}
-  h &= \sigma\bigl(W_1 x + b_1\bigr) \in \mathbb{R}^4, \\
-  \hat{y} &= \sigma\bigl(w_2^\top h + b_2\bigr) \in (0,1),
-\end{align}
-where $x \in \mathbb{R}^3$ is the input, $W_1 \in \mathbb{R}^{4 \times 3}$ and
-$w_2 \in \mathbb{R}^4$ are weight parameters, $b_1 \in \mathbb{R}^4$ and
-$b_2 \in \mathbb{R}$ are biases, and $\sigma(\cdot)$ is the elementwise ReLU
-activation in the hidden layer and a sigmoid activation at the output. The
-model is trained on all $2^3 = 8$ input combinations using binary
-cross-entropy loss so that $\hat{y} \approx f(x_1,x_2,x_3)$ for every point in
-the truth table.
-
-In the discussion below, we will work with the exact Boolean function $f$ (for
-clarity of exposition), but the same definitions and computations apply if
-$f$ is replaced by a trained neural network $f_\theta$.
-
-\subsection{Shapley Values for a Single Input}
-
-We now compute the exact Shapley values for a single input $x^\star$ under a
-fixed baseline. Let the feature index set be $N = \{1,2,3\}$, and define the
-baseline input $x^{(0)} \in \mathbb{R}^3$ by
-\begin{equation}
-  x^{(0)} = (0,0,0),
-\end{equation}
-so that all ``missing'' features are set to zero. For a given input
-$x^\star = (x_1^\star, x_2^\star, x_3^\star)$, we define a coalition-based
-input
-\begin{equation}
-  x_S^\star(i) =
-  \begin{cases}
-    x_i^\star, & \text{if } i \in S, \\
-    0,         & \text{if } i \notin S,
-  \end{cases}
-\end{equation}
-and set the value function
-\begin{equation}
-  v(S) = f\bigl(x_S^\star\bigr), \quad S \subseteq N.
-\end{equation}
-
-We are interested in a specific input
-\begin{equation}
-  x^\star = (1, 0, 1),
-\end{equation}
-for which
-\begin{equation}
-  f(x^\star) = f(1,0,1) = 1.
-\end{equation}
-The baseline prediction is
-\begin{equation}
-  v(\emptyset) = f(0,0,0) = 0.
-\end{equation}
-Hence the total effect to be distributed by the Shapley values is
-\begin{equation}
-  f(x^\star) - f(x^{(0)}) = 1 - 0 = 1.
-\end{equation}
-
-\subsubsection{Coalition Values}
-
-For each subset $S \subseteq N$, we construct $x_S^\star$ by taking the
-corresponding coordinates from $x^\star$ and setting others to zero. The
-resulting coalition values $v(S)$ are shown in
-Table~\ref{tab:coalition_values}.
-
-\begin{table}[h]
-  \centering
-  \begin{tabular}{c|c|c}
-    $S$ & $x_S^\star$ & $v(S) = f(x_S^\star)$ \\
-    \hline
-    $\emptyset$   & $(0,0,0)$     & $0$ \\
-    $\{1\}$       & $(1,0,0)$     & $0$ \\
-    $\{2\}$       & $(0,0,0)$     & $0$ \\
-    $\{3\}$       & $(0,0,1)$     & $0$ \\
-    $\{1,2\}$     & $(1,0,0)$     & $0$ \\
-    $\{1,3\}$     & $(1,0,1)$     & $1$ \\
-    $\{2,3\}$     & $(0,0,1)$     & $0$ \\
-    $\{1,2,3\}$   & $(1,0,1)$     & $1$ \\
-  \end{tabular}
-  \caption{Coalition-based inputs and values for $x^\star = (1,0,1)$ under
-  baseline $x^{(0)} = (0,0,0)$.}
-  \label{tab:coalition_values}
-\end{table}
-
-\subsubsection{Permutation-Based Shapley Computation}
-
-With three features, there are $3! = 6$ permutations of $N = \{1,2,3\}$.
-For each permutation $\pi$, we start from the empty coalition and add features
-in the order specified by $\pi$, recording the marginal contribution
-$v(S \cup \{i\}) - v(S)$ for each feature $i$ when it is added. The Shapley
-value for feature $i$ is the average of its marginal contributions over all
-permutations:
-\begin{equation}
-  \phi_i = \frac{1}{3!} \sum_{\pi \in \Pi(N)}
-  \bigl(v(S^\pi_i \cup \{i\}) - v(S^\pi_i)\bigr),
-\end{equation}
-where $S^\pi_i$ is the set of features that appear before $i$ in permutation
-$\pi$.
-
-We enumerate the permutations and contributions in
-Table~\ref{tab:perm_contrib}. Here $\Delta_i^{(\pi)}$ denotes the marginal
-contribution of feature $i$ for permutation $\pi$.
-
-\begin{table}[h]
-  \centering
-  \begin{tabular}{c|c|c|c}
-    Permutation $\pi$ & Contributions $\Delta_1^{(\pi)}$ & $\Delta_2^{(\pi)}$ & $\Delta_3^{(\pi)}$ \\
-    \hline
-    $(1,2,3)$ & $0$ & $0$ & $1$ \\
-    $(1,3,2)$ & $0$ & $0$ & $1$ \\
-    $(2,1,3)$ & $0$ & $0$ & $1$ \\
-    $(2,3,1)$ & $1$ & $0$ & $0$ \\
-    $(3,1,2)$ & $1$ & $0$ & $0$ \\
-    $(3,2,1)$ & $1$ & $0$ & $0$ \\
-  \end{tabular}
-  \caption{Marginal contributions $\Delta_i^{(\pi)}$ for each permutation
-  $\pi$ when explaining $x^\star = (1,0,1)$.}
-  \label{tab:perm_contrib}
-\end{table}
-
-Summing over all permutations and dividing by $3! = 6$ gives the Shapley
-values:
-\begin{align}
-  \phi_1 &= \frac{0 + 0 + 0 + 1 + 1 + 1}{6} = \frac{3}{6} = 0.5, \\
-  \phi_2 &= \frac{0 + 0 + 0 + 0 + 0 + 0}{6} = 0, \\
-  \phi_3 &= \frac{1 + 1 + 1 + 0 + 0 + 0}{6} = \frac{3}{6} = 0.5.
-\end{align}
-
-\subsubsection{Additivity and Interpretation}
-
-The Shapley values for $x^\star = (1,0,1)$ under baseline $x^{(0)}=(0,0,0)$
-satisfy the efficiency (additivity) property:
-\begin{equation}
-  f(x^\star) - f(x^{(0)}) = 1 - 0 = 1
-  = \phi_1 + \phi_2 + \phi_3 = 0.5 + 0 + 0.5.
-\end{equation}
-Thus the total increase in prediction from the baseline to the observed input
-is decomposed into equal contributions from features $x_1$ and $x_3$, while
-feature $x_2$ receives zero attribution for this particular input. This matches
-our intuitive understanding of the Boolean function: in the configuration
-$(1,0,1)$, the output is $1$ because both $x_1$ and $x_3$ are $1$ and jointly
-satisfy the $(x_1 \oplus x_2)\land x_3$ condition, whereas $x_2=0$ does not
-contribute positively or negatively relative to the baseline.
-
-\section{Dropout and Learning a Background Distribution}
-\label{sec:dropout_background}
-
-Up to this point, we have assumed a deterministic predictor $f : \mathbb{R}^n \to \mathbb{R}$. 
-However, modern neural networks frequently include stochastic regularisation layers such as \textit{dropout}. 
-Dropout modifies the network during training by randomly removing (or ``dropping'') a subset of hidden units. 
-This introduces additional subtleties when interpreting model predictions using Shapley values.
-
-\subsection{Dropout as a Stochastic Function Approximator}
-
-Given an input $x$, a dropout network computes
-\begin{equation}
-    f_{\theta,d}(x) = f_\theta(x; d),
-\end{equation}
-where $d$ denotes the random dropout mask.  
-During training, each unit is independently dropped with probability $p$:
-\begin{equation}
-    d_j \sim \text{Bernoulli}(1-p).
-\end{equation}
-
-At test time, the standard deterministic approximation rescales weights, giving
-\begin{equation}
-    \tilde{f}_\theta(x) = \mathbb{E}_d\big[f_{\theta,d}(x)\big],
-\end{equation}
-which corresponds to the ``expected network'' under dropout noise.
-
-Dropout therefore implicitly trains the network to be robust to missing information.  
-Conceptually, dropout teaches the network that certain units---and therefore certain \emph{features}---may be absent.  
-This has direct implications for Shapley values: removal of a feature during attribution becomes less surprising to a model that learned to operate under missing information.
-
-\subsubsection{Dropout and the Value Function}
-
-Consider the value function $v(S)$ used in Shapley attribution.  
-With dropout, the natural generalisation is
-\begin{equation}
-    v(S) = 
-    \mathbb{E}_{d}
-    \left[
-        f_\theta\big(x_S, x^{(0)}_{N\setminus S};\, d\big)
-    \right],
-\end{equation}
-where $x^{(0)}$ is a chosen baseline.
-
-Hence Shapley values can be interpreted as:
-\begin{quote}
-    The expected marginal contribution of feature $i$ when added to a coalition $S$, averaged both over coalitions and over dropout masks.
-\end{quote}
-
-This expectation is expensive to compute exactly and is typically approximated by using the deterministic test-time network $\tilde{f}_\theta(x)$.
-
-\subsection{When the Model Learns the Background}
-
-In classical Shapley feature attribution, the baseline $x^{(0)}$ is fixed externally 
-(e.g.\ zero vector, mean of dataset, or random samples).
-However, many neural networks implicitly (or explicitly) learn an internal ``background model’’ of what inputs typically look like.
-
-There are two main mechanisms through which this occurs:
-
-\subsubsection{1. Dropout Encourages Modeling of Missing Features}
-
-Because dropout randomly removes hidden activations during training, the network must learn to infer missing information from the remaining units.  
-In effect, dropout trains the network to be:
-\begin{itemize}
-    \item tolerant to missing signals, and 
-    \item able to reconstruct meaningful intermediate representations using typical background patterns.
-\end{itemize}
-
-Thus, when Shapley methods ``remove'' a feature by substituting a baseline value, the model may behave differently from the case where true input information is absent.
-
-\subsubsection{2. Models Often Learn Dataset-Level Means}
-
-Even without dropout, a neural network frequently learns the empirical mean of the data distribution.  
-For example, in MNIST, black background pixels dominate the dataset, so the model naturally allocates low activation to regions corresponding to the background.
-
-For a baseline $x^{(0)}$, two important cases arise:
-
-\paragraph{Zero Baseline.}
-For grayscale MNIST, $x^{(0)} = 0$ corresponds to black pixels.  
-Since most MNIST pixels are near $0$, the model may implicitly treat $0$ as a ``background’’ pattern.
-
-\paragraph{Learned Baseline.}
-Hidden layers may acquire biases that reproduce an approximate background image even when features are removed.  
-This means that using a zero baseline may not truly simulate ``removing'' a feature; instead it may trigger a learned bias pattern.
-
-\subsubsection{3. Explicitly Learning a Background Model}
-
-One can also intentionally train a network to reconstruct background inputs.  
-For example:
-\begin{itemize}
-    \item train an autoencoder on MNIST backgrounds,
-    \item train a denoising model to fill in missing pixels,
-    \item or add a loss term encouraging $f_\theta(x^{(0)})$ to approximate a learned baseline.
-\end{itemize}
-
-In these settings, the baseline used by Shapley values should ideally match the background distribution the model has internalised.
-
-\subsection{Implications for Shapley Feature Attribution}
-
-When the model is trained with dropout or implicitly learns a background distribution, Shapley values may change substantially depending on the baseline.
-
-Given a baseline $x^{(0)}$, the additive decomposition
-\begin{equation}
-    f(x) - f(x^{(0)}) = \sum_{i=1}^n \phi_i
-\end{equation}
-only faithfully represents the model's behaviour if $x^{(0)}$ is meaningful to the model.
-
-If the baseline is:
-\begin{itemize}
-    \item \textbf{in-distribution} (e.g.\ average MNIST background),  
-        Shapley values tend to provide intuitive, robust explanations.
-    \item \textbf{out-of-distribution} (e.g.\ constant zero when the model never sees zeros),  
-        Shapley values may be misleading due to unpredictable model extrapolation.
-\end{itemize}
-
-Dropout accentuates this effect because the model has learned to process partially missing representations.  
-Thus the choice of baseline becomes even more critical.
-
-\subsection{Summary}
-
-\begin{itemize}
-    \item Dropout introduces stochasticity and encourages robustness to missing information.
-    \item Neural networks may implicitly learn a ``background’’ representation of typical inputs.
-    \item Shapley values depend critically on the baseline $x^{(0)}$; incorrect or unrealistic baselines can distort attribution.
-    \item When dropout or background modeling is present, choosing baselines that reflect the data distribution leads to more reliable attributions.
-\end{itemize}
-
-This connection between regularisation, background learning, and Shapley values helps explain why attribution methods behave differently across different architectures and training protocols.
-
+\begin{enumerate}
+    \item \textbf{Train with random feature masks.} During training, randomly mask subsets of input features (setting them to a fixed value or a special embedding) so the model learns to produce meaningful predictions under partial information:
+    \[
+    x' = x \odot m, \quad m \sim \text{Bernoulli}(p).
+    \]
+    \item \textbf{Learn conditional inference under missingness.} Because masked inputs appear during training, the model learns to approximate $f(x_S)$ when only subset $S$ is available. The mask channel gives direct access to the conditional behaviour the Shapley game needs and lets us evaluate the conditional distribution that is actually desired.
+    \item \textbf{Compute Shapley values directly via masking.} During attribution, sample feature subsets $S$ using the same masking mechanism and evaluate
+    \[
+    \phi_i = \mathbb{E}_{S \subseteq N \setminus \{i\}} \bigl[f(x_{S \cup \{i\}}) - f(x_S)\bigr].
+    \]
+    No background distribution is needed—the mask itself encodes absence. Every evaluation remains in-distribution because the model was trained to handle masked inputs.
+    \item \textbf{Results.} Attributions are causally meaningful (absence is a learned intervention), computation stays faithful to the Shapley definition, off-manifold artefacts disappear, and the same mask interface can support conditional or interventional variants of Shapley by varying the mask sampling strategy.
+\end{enumerate}
 
 \end{document}
