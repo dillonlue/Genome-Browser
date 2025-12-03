@@ -1,0 +1,8 @@
+# Rebuild the image after changing Dockerfile/dependencies
+#docker-compose build
+
+# Start the container in the background
+#docker-compose up -d
+
+# Enter the running container shell
+#docker exec -it shapley_masking bash

@@ -1,0 +1,15 @@
+build-essential
+ca-certificates
+curl
+git
+nano
+nodejs
+npm
+latexmk
+openssh-client
+texlive-latex-recommended
+texlive-fonts-recommended
+texlive-latex-extra
+texlive-science
+biber
+vim

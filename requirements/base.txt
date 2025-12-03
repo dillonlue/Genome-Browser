@@ -1,0 +1,13 @@
+snakemake>=8.20,<9
+numpy>=1.26,<3
+pandas>=2.2,<3
+rich>=13,<14
+typer[all]>=0.12,<1
+jupyter>=1,<2
+torch>=2.3,<3
+captum>=0.7,<0.8
+shap>=0.45,<0.46
+keras>=3.4,<4
+matplotlib>=3.9,<4
+seaborn>=0.13,<0.14
+plotly>=5.23,<6

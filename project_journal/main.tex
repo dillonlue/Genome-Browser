@@ -1,0 +1,585 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\title{Shapley Values}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Shapley Values for Cooperative Games}
+
+Consider a \textbf{coalitional game} with player set $N$ where any subset (\textbf{coalition}) $S \subseteq N$ can form and achieve value given by a \textbf{characteristic function} (also called a \textbf{value function}) $v: 2^N \to \mathbb{R}$ with $v(\emptyset) = 0$.
+In the machine learning context we will refer to $v$ as the \textbf{value function}.
+The problem is to find a fair \textbf{allocation} $\phi_i(v)$ for each player $i \in N$ that distributes $v(N)$ according to agreed fairness principles.
+
+Four axioms define any fair \textbf{allocation mechanism}:
+
+\begin{enumerate}
+    \item \textbf{Efficiency:} The axiom requires $\sum_{i \in N} \phi_i(v) = v(N)$.
+    It ensures the full value of the player set is distributed.
+
+    \item \textbf{Symmetry:} The axiom states that if $v(S \cup \{i\}) = v(S \cup \{j\})$ for all $S$ not containing $i$ or $j$, then $\phi_i(v) = \phi_j(v)$.
+    It enforces equal treatment of players with identical marginal contributions.
+
+    \item \textbf{Dummy Player:} The axiom states that if $v(S \cup \{i\}) = v(S)$ for all $S$ not containing $i$, then $\phi_i(v) = 0$.
+    It recognises that players who never contribute value receive none of the payoff.
+
+    \item \textbf{Linearity:} The axiom requires $\phi_i(av + bw) = a\,\phi_i(v) + b\,\phi_i(w)$ for any value functions $v, w$ and scalars $a, b \in \mathbb{R}$.
+    It ensures additivity across games and positive homogeneity with respect to scaling.
+\end{enumerate}
+
+These four axioms uniquely determine the allocation.
+The \textbf{Shapley value} for player $i$ is given by:
+
+\begin{equation}
+\phi_i(v) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|! (|N| - |S| - 1)!}{|N|!} \left[ v(S \cup \{i\}) - v(S) \right]
+\end{equation}
+
+\textbf{Derivation of the weight $\frac{|S|! (|N| - |S| - 1)!}{|N|!}$:}
+Consider all $|N|!$ possible arrival orders (\textbf{permutations}) of the $N$ players.
+For player $i$ to join exactly the coalition $S$, the players in $S$ must arrive before $i$, and the remaining $|N| - |S| - 1$ players must arrive after $i$.
+There are $|S|!$ ways to order the players arriving before $i$, and $(|N| - |S| - 1)!$ ways to order those arriving after $i$.
+Thus, the number of permutations where $i$ joins coalition $S$ is $|S|! (|N| - |S| - 1)!$, and the probability is $\frac{|S|! (|N| - |S| - 1)!}{|N|!}$.
+Therefore the Shapley value equals the expected marginal contribution under a uniform random arrival order.
+
+The term $v(S \cup \{i\}) - v(S)$ is player $i$'s \textbf{marginal contribution} when joining coalition $S$.
+
+Equivalently, averaging over all \textbf{permutations} $\pi \in \Pi(N)$, where $\Pi(N)$ denotes the set of all permutations of $N$:
+
+\begin{equation}
+\phi_i(v) = \frac{1}{|N|!} \sum_{\pi \in \Pi(N)} \left[ v(S_\pi^i \cup \{i\}) - v(S_\pi^i) \right]
+\end{equation}
+
+where $S_\pi^i$ is the set of players appearing before $i$ in permutation $\pi$.
+
+\section{Machine Learning Feature Attribution as Shapley Values}
+\subsection{Formal Setup}
+
+We now set up the general SHAP framework for feature attribution.
+Consider a \textbf{predictive model} $f: \mathbb{R}^n \to \mathbb{R}$ and an input $x \in \mathbb{R}^n$ with prediction $f(x)$.
+The goal is to quantify how much each feature in $x$ contributes to this prediction.
+We formulate this task as a Shapley value computation by treating each \textbf{original feature as a player} in a cooperative game.
+We index the features by the player set $N = \{1,\dots,n\}$, with feature $i$ corresponding to coordinate $x_i$.
+
+To connect the model $f$ with coalitional games we introduce the \textbf{masked predictor} $f(x; S)$.
+For any subset (\textbf{coalition}) $S \subseteq N$ we interpret $S$ as the set of features that are treated as known, and we define $f(x; S)$ to be the model prediction when only the coordinates in $S$ are available and the remaining coordinates $N \setminus S$ are treated as missing.
+Notice that we have not yet specified how to compute $f(x; S)$ in practice.
+This is a \textbf{major modeling choice} when computing Shapley values, and we will discuss it in detail in the next section.
+The special case $f(x; \emptyset)$ is the prediction when no feature information is used, and we refer to this quantity as the \textbf{baseline prediction}.
+We therefore set
+\[
+b = f(x; \emptyset).
+\]
+
+Given this masked predictor we define the \textbf{value function} $v : 2^N \to \mathbb{R}$ by
+\[
+v(S) = f(x; S) - f(x; \emptyset)
+\]
+for every coalition $S \subseteq N$.
+By construction, $v(\emptyset) = 0$ and $v(N) = f(x) - f(x; \emptyset)$, so the total game value equals the difference between the actual prediction and the baseline prediction.
+
+A \textbf{Shapley explanation} of $f$ at input $x$ is a vector of feature attributions $\phi(x) = (\phi_1(x),\dots,\phi_n(x))$ associated with the game $(N,v)$.
+The SHAP framework enforces the \textbf{efficiency} condition
+\[
+v(N) = f(x) - f(x; \emptyset) = \sum_{i=1}^n \phi_i(x),
+\]
+so that the total attribution exactly matches the game value $v(N)$.
+Each attribution $\phi_i(x)$ is defined to be the Shapley value of feature $i$ in the cooperative game $(N,v)$.
+Formally, writing $n = |N|$, the Shapley value for feature $i$ is
+\[
+\phi_i(x) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|! \, (n - |S| - 1)!}{n!} \Bigl[ v(S \cup \{i\}) - v(S) \Bigr].
+\]
+This expression averages feature $i$'s \textbf{marginal contribution} $v(S \cup \{i\}) - v(S)$ over all coalitions $S$ that do not contain $i$, with weights corresponding to the fraction of permutations in which $S$ precedes $i$.
+Equivalently, let $\Pi(N)$ denote the set of all permutations of $N$ and let $S_\pi^i$ be the set of features that appear before $i$ in permutation $\pi$.
+Then we can write
+\[
+\phi_i(x) = \frac{1}{n!} \sum_{\pi \in \Pi(N)} \Bigl[ v(S_\pi^i \cup \{i\}) - v(S_\pi^i) \Bigr]
+\]
+and, using the definition of $v$, this becomes
+\[
+\phi_i(x) = \frac{1}{n!} \sum_{\pi \in \Pi(N)} \Bigl[ f(x; S_\pi^i \cup \{i\}) - f(x; S_\pi^i) \Bigr].
+\]
+Thus, in the SHAP setting the Shapley values admit two complementary interpretations.
+First, they \textbf{allocate the prediction above the baseline} $f(x; \emptyset)$ so that the attributions sum to $f(x) - f(x; \emptyset)$.
+Second, each $\phi_i(x)$ equals the \textbf{expected marginal change in prediction} when feature $i$ is added to the set of previously included features in a uniformly random ordering.
+
+\subsection{Intuition: Toy House Price Example}
+
+Suppose we observe five houses, each described by three features—lot size (acres), total square footage, and number of rooms—and a sale price $y$ in dollars, as shown in Table~\ref{tab:toy_houses}.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{c|c|c|c|c}
+    House & Acres & Square feet & Rooms & Price (\$) \\
+    \hline
+    1 & 0.10 & 1200 & 3 & $220{,}000$ \\
+    2 & 0.15 & 1400 & 3 & $260{,}000$ \\
+    3 & 0.20 & 1600 & 4 & $300{,}000$ \\
+    4 & 0.25 & 1800 & 4 & $340{,}000$ \\
+    5 & 0.30 & 2000 & 5 & $380{,}000$ \\
+  \end{tabular}
+  \caption{Toy dataset of five houses with simple features and sale prices.}
+  \label{tab:toy_houses}
+\end{table}
+
+Let $x \in \mathbb{R}^3$ collect the three features for a house and let $f(x)$ be a trained regression model's predicted sale price.
+For a particular house $x$, for example $x_5 = (0.30, 2000, 5)$, the feature attribution problem is to determine how each coordinate of $x$ (acres, square footage, rooms) contributes to the prediction $f(x)$.
+Assume for concreteness that the model outputs $f(x_5) = 360{,}000$ dollars for house $5$.
+
+In the notation of the formal setup, we consider the extended prediction operator $f(x_5; S)$ for coalitions $S \subseteq N = \{1,2,3\}$, where the three features correspond to acres, square footage, and rooms.
+We define the \textbf{baseline prediction} to be $f(x_5; \emptyset)$, which in this example we take to be the average sale price across the five houses.
+If the average price is $300{,}000$ dollars, then $f(x_5) - f(x_5; \emptyset) = 60{,}000$ dollars.
+This quantity is the total value $v(N)$ that must be allocated across the three features by the Shapley attributions. The feature attributions decompose the $60{,}000$-dollar improvement above the baseline.
+Equivalently, we can interpret each $\phi_i(x_5)$ as the expected marginal change in the prediction when feature $i$ is added to a coalition of previously included features in a uniformly random order.
+Concretely, we start from the baseline prediction $f(x_5; \emptyset)$, choose a random ordering of the three features, and then add them one at a time, recording the increment $f(x_5; S \cup \{i\}) - f(x_5; S)$ each time feature $i$ is added to a set $S$ of features that appear earlier in the ordering.
+The Shapley value $\phi_i(x_5)$ is the average of this marginal change across all six possible orderings.
+
+To make this explicit, label acres, square footage, and rooms as features $1,2,3$ so that $N = \{1,2,3\}$.
+For feature $1$, the six permutations of $N$ are
+\[
+(1,2,3),\ (1,3,2),\ (2,1,3),\ (2,3,1),\ (3,1,2),\ (3,2,1).
+\]
+In each permutation $\pi$, let $S_\pi^1$ be the set of features that appear before $1$.
+The marginal contribution of feature $1$ in permutation $\pi$ is
+\[
+\Delta_1^\pi = f(x_5; S_\pi^1 \cup \{1\}) - f(x_5; S_\pi^1).
+\]
+For example, in permutation $(1,2,3)$ we have $S_{(1,2,3)}^1 = \emptyset$ and
+\[
+\Delta_1^{(1,2,3)} = f(x_5; \{1\}) - f(x_5; \emptyset),
+\]
+while in permutation $(2,1,3)$ we have $S_{(2,1,3)}^1 = \{2\}$ and
+\[
+\Delta_1^{(2,1,3)} = f(x_5; \{1,2\}) - f(x_5; \{2\}).
+\]
+The Shapley value for feature $1$ is then
+\[
+\phi_1(x_5) = \frac{1}{6} \sum_{\pi \in \Pi(\{1,2,3\})} \Delta_1^\pi.
+\]
+Analogous expressions hold for features $2$ and $3$, obtained by averaging their marginal contributions over the same six permutations.
+
+\section{Defining the Masked Predictor}
+In the previous section, we defined the value function $v(S) = f(x; S) - f(x; \emptyset)$ and introduced the \textbf{baseline prediction} $f(x; \emptyset)$.
+We did not yet specify how the \textbf{masked predictions} $f(x; S)$ are computed.
+The predictive model $f$ is usually defined only on full feature vectors $x$, so we must decide how to evaluate the \textbf{masked predictor} $f(x; S)$ when only a subset of features is treated as known.
+
+\textbf{Shapley explanations depend critically on how we define the masked predictor because it is central to the value function:}
+\begin{enumerate}
+    \item \textbf{Baseline prediction:} For a fixed input $x$, the baseline prediction $f(x; \emptyset)$ determines the total quantity $f(x) - f(x; \emptyset)$ that the Shapley values $\phi_i(x)$ must allocate.
+    The value function $v(S) = f(x; S) - f(x; \emptyset)$ depends directly on the chosen baseline.
+    \item \textbf{Masked predictor semantics:} The masked predictions $f(x; S)$ specify how this total value is distributed across coalitions $S$.
+    Different definitions of $f(x; S)$ induce different value functions $v(S)$ and thus different Shapley explanations, even when the underlying model $f$ and the input $x$ are fixed.
+    \item \textbf{Faithfulness to the original model:} The Shapley game is built on the masked predictor $S \mapsto f(x; S)$ rather than directly on the original predictor $x \mapsto f(x)$.
+    If $f(x; S)$ is defined using unrealistic hybrids or an inappropriate background distribution, the resulting value function $v(S)$ can behave very differently from $f$ on typical inputs, and the Shapley attributions may fail to faithfully reflect how $f$ actually uses its features.
+\end{enumerate}
+
+Several standard choices exist for defining $f(x; S)$. Intuitively, the \textbf{masked predictor} $f(x; S)$ represents the prediction when features in $S$ are treated as known and features in $N \setminus S$ are treated as unknown.
+We evaluate $f(x; S)$ by applying $f$ to a full feature vector in which coordinates in $S$ are fixed to $x_S$ and coordinates in $N \setminus S$ are filled in according to a chosen rule.
+Several standard choices for this rule appear in the SHAP literature:
+
+\begin{enumerate}
+    \item \textbf{Fixed baseline substitution:} Choose a baseline input $x^{(0)} \in \mathbb{R}^n$ (for example, a zero vector or a reference input) and define a hybrid input that uses $x_S$ on coordinates in $S$ and $x^{(0)}_{N \setminus S}$ on coordinates in $N \setminus S$.
+    The masked predictor is $f(x; S) = f(x_S, x^{(0)}_{N \setminus S})$.
+    Unknown features are always replaced with fixed baseline values, which is simple but can evaluate $f$ on out-of-distribution inputs.
+    Formally, for each coalition $S \subseteq N$ we define a hybrid input $x^{(S)} \in \mathbb{R}^n$ by
+    \[
+    x_i^{(S)} =
+    \begin{cases}
+      x_i, & i \in S, \\
+      x_i^{(0)}, & i \notin S,
+    \end{cases}
+    \]
+    so that $x^{(S)} = (x_S, x^{(0)}_{N \setminus S})$ and
+    \[
+    f(x; S) := f\bigl(x^{(S)}\bigr).
+    \]
+    In words, $x^{(S)}$ agrees with the original input $x$ on coordinates in $S$ and with the baseline input $x^{(0)}$ on coordinates in $N \setminus S$.
+
+    \item \textbf{Mean imputation:} Let $\bar{x}_{N \setminus S} = \mathbb{E}[X_{N \setminus S}]$ denote the mean of the unknown features under the training distribution.
+    The masked predictor is $f(x; S) = f(x_S, \bar{x}_{N \setminus S})$.
+    Unknown features are replaced with their mean training values, which approximates averaging over the marginal distribution using only its first moment.
+
+    \item \textbf{Marginal expectation (interventional semantics):} Let $P(X)$ denote the joint training distribution over features.
+    The masked predictor is defined by the \emph{marginal expectation}
+    \[
+    f(x; S) = \mathbb{E}_{X_{N \setminus S} \sim P(X_{N \setminus S})}\!\left[f(x_S, X_{N \setminus S})\right].
+    \]
+    Unknown features are sampled from their marginal distribution, so conditioning on $x_S$ does not affect their distribution.
+    In practice, this expectation is approximated using samples from the empirical training distribution.
+
+    \item \textbf{Conditional expectation (conditional semantics):} Instead of breaking feature dependencies, we can preserve them by averaging over the conditional distribution of the unknown features given the known ones.
+    The masked predictor is
+    \[
+    f(x; S) = \mathbb{E}_{X_{N \setminus S} \sim P(X_{N \setminus S} \mid X_S = x_S)}\!\left[f(x_S, X_{N \setminus S})\right].
+    \]
+    Unknown features follow their conditional distribution given $X_S = x_S$, which properly accounts for feature correlations but requires modeling $P(X_{N \setminus S} \mid X_S)$ in high dimensions.
+\end{enumerate}
+
+From a prediction point of view, the \textbf{conditional expectation} definition yields the most faithful notion of prediction when only a subset of features is known.
+Let $X$ denote the random input vector with distribution $P(X)$ and consider predicting the scalar response $f(X)$ under squared error loss when only $X_S$ is observed.
+The prediction that minimises the expected squared error given $X_S = x_S$ is
+\[
+g_S(x_S) = \mathbb{E}\bigl[f(X) \mid X_S = x_S\bigr],
+\]
+which is exactly the conditional masked predictor obtained by averaging $f(x_S, X_{N \setminus S})$ over the conditional distribution of the unknown coordinates $X_{N \setminus S}$ given $X_S = x_S$.
+In words, conditional expectation computes the best mean-squared-error prediction for $f(X)$ using all information in the observed features $X_S$ while sampling the unknown features in a way that respects their empirical dependencies with $X_S$.
+By contrast, marginal expectation ignores these dependencies by treating $X_{N \setminus S}$ as independent of $X_S$, and fixed-baseline or mean imputation correspond to degenerate choices of $P(X_{N \setminus S} \mid X_S)$ that are no longer optimal given $X_S$ in this squared-error sense.
+Thus, when the goal is to explain predictions under the observed data distribution and to treat known and unknown coordinates coherently, conditional expectation provides a principled notion of ``best prediction given $x_S$'' for defining the masked predictor.
+
+This perspective also clarifies why simple \textbf{zero} or \textbf{mean} baselines can produce unfaithful Shapley games.
+A zero baseline sets $x^{(0)}$ to the all-zero vector and evaluates hybrids $f(x_S, x^{(0)}_{N \setminus S})$ that may lie far outside the support of the training distribution, so the value function $v(S)$ reflects model behaviour on highly unrealistic inputs rather than on typical data.
+Similarly, a mean baseline or mean imputation uses a single fixed vector or the marginal mean $\bar{x}_{N \setminus S}$ for all coalitions $S$, which discards the dependence between $X_S$ and $X_{N \setminus S}$ and does not approximate the conditional expectation $\mathbb{E}[f(X) \mid X_S = x_S]$.
+In both cases, the masked predictor $S \mapsto f(x; S)$ is anchored to off-manifold or weakly informative reference points, so the induced value function $v(S)$ can deviate substantially from how $f$ behaves on realistic inputs.
+As a result, Shapley attributions built on zero or mean baselines may emphasise artefacts of the chosen reference rather than faithfully capturing how the original model uses its features across the data distribution.
+
+\section{Computational Challenges}
+
+Computing exact Shapley values faces two fundamental \textbf{computational bottlenecks}:
+
+\subsection{Value Function Evaluation}
+
+Each evaluation of $v(S)$ requires computing the model's expected output when only features in $S$ are known.
+For \textbf{conditional expectation}, this requires estimating $P(X_{N \setminus S} | X_S = x_S)$, which becomes intractable for high-dimensional features or complex dependencies.
+For \textbf{marginal expectation}, each $v(S)$ evaluation requires multiple model forward passes to average over sampled values of unknown features.
+With $n$ features, there are $2^n$ possible coalitions $S$, each requiring potentially expensive value function computation.
+The total computational cost grows as $O(2^n \cdot m \cdot C_f)$ where $m$ is the number of samples for expectation estimation and $C_f$ is the cost of one model evaluation.
+
+\subsection{Summation Over Permutations}
+
+The Shapley value formula requires considering all $n!$ permutations or equivalently all $2^{n-1}$ coalitions that feature $i$ can join.
+For the permutation formulation $\phi_i(v) = \frac{1}{n!} \sum_{\pi \in \Pi(N)} [v(S_\pi^i \cup \{i\}) - v(S_\pi^i)]$, exact computation requires $O(n!)$ evaluations.
+For the coalition formulation $\phi_i(v) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|! (n - |S| - 1)!}{n!} [v(S \cup \{i\}) - v(S)]$, we need $O(2^n)$ evaluations.
+Both formulations become computationally prohibitive for even modest numbers of features (e.g., $n > 20$).
+
+These challenges motivate \textbf{approximation methods} including Monte Carlo sampling of permutations, limiting to local neighborhoods of features, and model-specific optimizations that exploit structure in $f$.
+
+\section{Worked Example: Exact Shapley Values for a Boolean Model}
+\label{sec:toy_example}
+
+To illustrate the Shapley framework in a simple, fully tractable setting, we
+consider a synthetic example with three binary inputs and a single scalar
+output. This example serves as a bridge between the classical coalitional game
+view and the feature attribution view in machine learning.
+
+\subsection{Boolean Function with Three Inputs}
+
+Let the input space be $\{0,1\}^3$, and define the Boolean function
+$f : \{0,1\}^3 \to \{0,1\}$ by
+\begin{equation}
+  f(x_1, x_2, x_3) = (x_1 \oplus x_2) \land x_3,
+\end{equation}
+where $\oplus$ denotes the XOR (exclusive OR) operator and $\land$ denotes the
+logical AND. Thus $f(x) = 1$ only when
+\begin{itemize}
+  \item $x_3 = 1$, and
+  \item exactly one of $x_1, x_2$ equals $1$.
+\end{itemize}
+
+The full truth table is given in Table~\ref{tab:boolean_truth}.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{ccc|c|c}
+    $x_1$ & $x_2$ & $x_3$ & $x_1 \oplus x_2$ & $f(x_1,x_2,x_3)$ \\
+    \hline
+    0 & 0 & 0 & 0 & 0 \\
+    0 & 0 & 1 & 0 & 0 \\
+    0 & 1 & 0 & 1 & 0 \\
+    0 & 1 & 1 & 1 & 1 \\
+    1 & 0 & 0 & 1 & 0 \\
+    1 & 0 & 1 & 1 & 1 \\
+    1 & 1 & 0 & 0 & 0 \\
+    1 & 1 & 1 & 0 & 0 \\
+  \end{tabular}
+  \caption{Truth table for $f(x_1,x_2,x_3) = (x_1 \oplus x_2) \land x_3$.}
+  \label{tab:boolean_truth}
+\end{table}
+
+We will interpret the three features $(x_1,x_2,x_3)$ as the players in a
+coalitional game, and the \textbf{value function} $v(S)$ as the model output
+when only the features in $S \subseteq N = \{1,2,3\}$ are ``active'', with
+the remaining features fixed to a baseline.
+
+\subsection{Neural Network Approximation}
+
+In practice, instead of working directly with a Boolean function $f$, we often
+have a learned model $f_\theta$ (e.g.\ a neural network) that approximates $f$.
+For concreteness, consider a small multi-layer perceptron (MLP) with one hidden
+layer:
+\begin{align}
+  h &= \sigma\bigl(W_1 x + b_1\bigr) \in \mathbb{R}^4, \\
+  \hat{y} &= \sigma\bigl(w_2^\top h + b_2\bigr) \in (0,1),
+\end{align}
+where $x \in \mathbb{R}^3$ is the input, $W_1 \in \mathbb{R}^{4 \times 3}$ and
+$w_2 \in \mathbb{R}^4$ are weight parameters, $b_1 \in \mathbb{R}^4$ and
+$b_2 \in \mathbb{R}$ are biases, and $\sigma(\cdot)$ is the elementwise ReLU
+activation in the hidden layer and a sigmoid activation at the output. The
+model is trained on all $2^3 = 8$ input combinations using binary
+cross-entropy loss so that $\hat{y} \approx f(x_1,x_2,x_3)$ for every point in
+the truth table.
+
+In the discussion below, we will work with the exact Boolean function $f$ (for
+clarity of exposition), but the same definitions and computations apply if
+$f$ is replaced by a trained neural network $f_\theta$.
+
+\subsection{Shapley Values for a Single Input}
+
+We now compute the exact Shapley values for a single input $x^\star$ under a
+fixed baseline. Let the feature index set be $N = \{1,2,3\}$, and define the
+baseline input $x^{(0)} \in \mathbb{R}^3$ by
+\begin{equation}
+  x^{(0)} = (0,0,0),
+\end{equation}
+so that all ``missing'' features are set to zero. For a given input
+$x^\star = (x_1^\star, x_2^\star, x_3^\star)$, we define a coalition-based
+input
+\begin{equation}
+  x_S^\star(i) =
+  \begin{cases}
+    x_i^\star, & \text{if } i \in S, \\
+    0,         & \text{if } i \notin S,
+  \end{cases}
+\end{equation}
+and set the value function
+\begin{equation}
+  v(S) = f\bigl(x_S^\star\bigr), \quad S \subseteq N.
+\end{equation}
+
+We are interested in a specific input
+\begin{equation}
+  x^\star = (1, 0, 1),
+\end{equation}
+for which
+\begin{equation}
+  f(x^\star) = f(1,0,1) = 1.
+\end{equation}
+The baseline prediction is
+\begin{equation}
+  v(\emptyset) = f(0,0,0) = 0.
+\end{equation}
+Hence the total effect to be distributed by the Shapley values is
+\begin{equation}
+  f(x^\star) - f(x^{(0)}) = 1 - 0 = 1.
+\end{equation}
+
+\subsubsection{Coalition Values}
+
+For each subset $S \subseteq N$, we construct $x_S^\star$ by taking the
+corresponding coordinates from $x^\star$ and setting others to zero. The
+resulting coalition values $v(S)$ are shown in
+Table~\ref{tab:coalition_values}.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{c|c|c}
+    $S$ & $x_S^\star$ & $v(S) = f(x_S^\star)$ \\
+    \hline
+    $\emptyset$   & $(0,0,0)$     & $0$ \\
+    $\{1\}$       & $(1,0,0)$     & $0$ \\
+    $\{2\}$       & $(0,0,0)$     & $0$ \\
+    $\{3\}$       & $(0,0,1)$     & $0$ \\
+    $\{1,2\}$     & $(1,0,0)$     & $0$ \\
+    $\{1,3\}$     & $(1,0,1)$     & $1$ \\
+    $\{2,3\}$     & $(0,0,1)$     & $0$ \\
+    $\{1,2,3\}$   & $(1,0,1)$     & $1$ \\
+  \end{tabular}
+  \caption{Coalition-based inputs and values for $x^\star = (1,0,1)$ under
+  baseline $x^{(0)} = (0,0,0)$.}
+  \label{tab:coalition_values}
+\end{table}
+
+\subsubsection{Permutation-Based Shapley Computation}
+
+With three features, there are $3! = 6$ permutations of $N = \{1,2,3\}$.
+For each permutation $\pi$, we start from the empty coalition and add features
+in the order specified by $\pi$, recording the marginal contribution
+$v(S \cup \{i\}) - v(S)$ for each feature $i$ when it is added. The Shapley
+value for feature $i$ is the average of its marginal contributions over all
+permutations:
+\begin{equation}
+  \phi_i = \frac{1}{3!} \sum_{\pi \in \Pi(N)}
+  \bigl(v(S^\pi_i \cup \{i\}) - v(S^\pi_i)\bigr),
+\end{equation}
+where $S^\pi_i$ is the set of features that appear before $i$ in permutation
+$\pi$.
+
+We enumerate the permutations and contributions in
+Table~\ref{tab:perm_contrib}. Here $\Delta_i^{(\pi)}$ denotes the marginal
+contribution of feature $i$ for permutation $\pi$.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{c|c|c|c}
+    Permutation $\pi$ & Contributions $\Delta_1^{(\pi)}$ & $\Delta_2^{(\pi)}$ & $\Delta_3^{(\pi)}$ \\
+    \hline
+    $(1,2,3)$ & $0$ & $0$ & $1$ \\
+    $(1,3,2)$ & $0$ & $0$ & $1$ \\
+    $(2,1,3)$ & $0$ & $0$ & $1$ \\
+    $(2,3,1)$ & $1$ & $0$ & $0$ \\
+    $(3,1,2)$ & $1$ & $0$ & $0$ \\
+    $(3,2,1)$ & $1$ & $0$ & $0$ \\
+  \end{tabular}
+  \caption{Marginal contributions $\Delta_i^{(\pi)}$ for each permutation
+  $\pi$ when explaining $x^\star = (1,0,1)$.}
+  \label{tab:perm_contrib}
+\end{table}
+
+Summing over all permutations and dividing by $3! = 6$ gives the Shapley
+values:
+\begin{align}
+  \phi_1 &= \frac{0 + 0 + 0 + 1 + 1 + 1}{6} = \frac{3}{6} = 0.5, \\
+  \phi_2 &= \frac{0 + 0 + 0 + 0 + 0 + 0}{6} = 0, \\
+  \phi_3 &= \frac{1 + 1 + 1 + 0 + 0 + 0}{6} = \frac{3}{6} = 0.5.
+\end{align}
+
+\subsubsection{Additivity and Interpretation}
+
+The Shapley values for $x^\star = (1,0,1)$ under baseline $x^{(0)}=(0,0,0)$
+satisfy the efficiency (additivity) property:
+\begin{equation}
+  f(x^\star) - f(x^{(0)}) = 1 - 0 = 1
+  = \phi_1 + \phi_2 + \phi_3 = 0.5 + 0 + 0.5.
+\end{equation}
+Thus the total increase in prediction from the baseline to the observed input
+is decomposed into equal contributions from features $x_1$ and $x_3$, while
+feature $x_2$ receives zero attribution for this particular input. This matches
+our intuitive understanding of the Boolean function: in the configuration
+$(1,0,1)$, the output is $1$ because both $x_1$ and $x_3$ are $1$ and jointly
+satisfy the $(x_1 \oplus x_2)\land x_3$ condition, whereas $x_2=0$ does not
+contribute positively or negatively relative to the baseline.
+
+\section{Dropout and Learning a Background Distribution}
+\label{sec:dropout_background}
+
+Up to this point, we have assumed a deterministic predictor $f : \mathbb{R}^n \to \mathbb{R}$. 
+However, modern neural networks frequently include stochastic regularisation layers such as \textit{dropout}. 
+Dropout modifies the network during training by randomly removing (or ``dropping'') a subset of hidden units. 
+This introduces additional subtleties when interpreting model predictions using Shapley values.
+
+\subsection{Dropout as a Stochastic Function Approximator}
+
+Given an input $x$, a dropout network computes
+\begin{equation}
+    f_{\theta,d}(x) = f_\theta(x; d),
+\end{equation}
+where $d$ denotes the random dropout mask.  
+During training, each unit is independently dropped with probability $p$:
+\begin{equation}
+    d_j \sim \text{Bernoulli}(1-p).
+\end{equation}
+
+At test time, the standard deterministic approximation rescales weights, giving
+\begin{equation}
+    \tilde{f}_\theta(x) = \mathbb{E}_d\big[f_{\theta,d}(x)\big],
+\end{equation}
+which corresponds to the ``expected network'' under dropout noise.
+
+Dropout therefore implicitly trains the network to be robust to missing information.  
+Conceptually, dropout teaches the network that certain units---and therefore certain \emph{features}---may be absent.  
+This has direct implications for Shapley values: removal of a feature during attribution becomes less surprising to a model that learned to operate under missing information.
+
+\subsubsection{Dropout and the Value Function}
+
+Consider the value function $v(S)$ used in Shapley attribution.  
+With dropout, the natural generalisation is
+\begin{equation}
+    v(S) = 
+    \mathbb{E}_{d}
+    \left[
+        f_\theta\big(x_S, x^{(0)}_{N\setminus S};\, d\big)
+    \right],
+\end{equation}
+where $x^{(0)}$ is a chosen baseline.
+
+Hence Shapley values can be interpreted as:
+\begin{quote}
+    The expected marginal contribution of feature $i$ when added to a coalition $S$, averaged both over coalitions and over dropout masks.
+\end{quote}
+
+This expectation is expensive to compute exactly and is typically approximated by using the deterministic test-time network $\tilde{f}_\theta(x)$.
+
+\subsection{When the Model Learns the Background}
+
+In classical Shapley feature attribution, the baseline $x^{(0)}$ is fixed externally 
+(e.g.\ zero vector, mean of dataset, or random samples).
+However, many neural networks implicitly (or explicitly) learn an internal ``background model’’ of what inputs typically look like.
+
+There are two main mechanisms through which this occurs:
+
+\subsubsection{1. Dropout Encourages Modeling of Missing Features}
+
+Because dropout randomly removes hidden activations during training, the network must learn to infer missing information from the remaining units.  
+In effect, dropout trains the network to be:
+\begin{itemize}
+    \item tolerant to missing signals, and 
+    \item able to reconstruct meaningful intermediate representations using typical background patterns.
+\end{itemize}
+
+Thus, when Shapley methods ``remove'' a feature by substituting a baseline value, the model may behave differently from the case where true input information is absent.
+
+\subsubsection{2. Models Often Learn Dataset-Level Means}
+
+Even without dropout, a neural network frequently learns the empirical mean of the data distribution.  
+For example, in MNIST, black background pixels dominate the dataset, so the model naturally allocates low activation to regions corresponding to the background.
+
+For a baseline $x^{(0)}$, two important cases arise:
+
+\paragraph{Zero Baseline.}
+For grayscale MNIST, $x^{(0)} = 0$ corresponds to black pixels.  
+Since most MNIST pixels are near $0$, the model may implicitly treat $0$ as a ``background’’ pattern.
+
+\paragraph{Learned Baseline.}
+Hidden layers may acquire biases that reproduce an approximate background image even when features are removed.  
+This means that using a zero baseline may not truly simulate ``removing'' a feature; instead it may trigger a learned bias pattern.
+
+\subsubsection{3. Explicitly Learning a Background Model}
+
+One can also intentionally train a network to reconstruct background inputs.  
+For example:
+\begin{itemize}
+    \item train an autoencoder on MNIST backgrounds,
+    \item train a denoising model to fill in missing pixels,
+    \item or add a loss term encouraging $f_\theta(x^{(0)})$ to approximate a learned baseline.
+\end{itemize}
+
+In these settings, the baseline used by Shapley values should ideally match the background distribution the model has internalised.
+
+\subsection{Implications for Shapley Feature Attribution}
+
+When the model is trained with dropout or implicitly learns a background distribution, Shapley values may change substantially depending on the baseline.
+
+Given a baseline $x^{(0)}$, the additive decomposition
+\begin{equation}
+    f(x) - f(x^{(0)}) = \sum_{i=1}^n \phi_i
+\end{equation}
+only faithfully represents the model's behaviour if $x^{(0)}$ is meaningful to the model.
+
+If the baseline is:
+\begin{itemize}
+    \item \textbf{in-distribution} (e.g.\ average MNIST background),  
+        Shapley values tend to provide intuitive, robust explanations.
+    \item \textbf{out-of-distribution} (e.g.\ constant zero when the model never sees zeros),  
+        Shapley values may be misleading due to unpredictable model extrapolation.
+\end{itemize}
+
+Dropout accentuates this effect because the model has learned to process partially missing representations.  
+Thus the choice of baseline becomes even more critical.
+
+\subsection{Summary}
+
+\begin{itemize}
+    \item Dropout introduces stochasticity and encourages robustness to missing information.
+    \item Neural networks may implicitly learn a ``background’’ representation of typical inputs.
+    \item Shapley values depend critically on the baseline $x^{(0)}$; incorrect or unrealistic baselines can distort attribution.
+    \item When dropout or background modeling is present, choosing baselines that reflect the data distribution leads to more reliable attributions.
+\end{itemize}
+
+This connection between regularisation, background learning, and Shapley values helps explain why attribution methods behave differently across different architectures and training protocols.
+
+
+\end{document}

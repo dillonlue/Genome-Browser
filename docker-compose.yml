@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  research:
+    build: .
+    container_name: shapley_masking
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./:/repo
+      - ${HOME}/.codex:/root/.codex
+      - ${HOME}/.ssh:/root/.ssh
+      - ${HOME}/.gitconfig:/root/.gitconfig
