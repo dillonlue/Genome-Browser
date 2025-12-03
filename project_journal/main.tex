@@ -306,32 +306,126 @@ The value of $C_{\text{mask}}$ depends entirely on how $f(x; S)$ is defined:
   Because of this extra modelling burden and computational overhead, such conditional estimators are rarely used in mainstream SHAP workflows, which overwhelmingly adopt the simpler marginal or baseline-based semantics described above.
 \end{itemize}
 
-\section{Mask-Aware Shapley Attribution}
+Putting these pieces together, the de facto standard in modern deep-learning applications is a combination of \emph{marginal} masking semantics with a DeepSHAP-style approximation to the permutation sum. Concretely, one selects a background dataset $\{x^{(b)}\}_{b=1}^B$ drawn from the training distribution and approximates each masked evaluation by
+\[
+f(x; S)
+\approx \frac{1}{B} \sum_{b=1}^B f\bigl(x_S, x^{(b)}_{N \setminus S}\bigr).
+\]
+Let $C_f$ denote the cost of a single forward and backward pass of the network on one input. DeepSHAP collapses the $n!$-term permutation sum into a single forward–backward pass \emph{per background point} by using DeepLIFT-style propagation rules, so that computing a complete set of Shapley attributions for one input $x$ costs on the order of $B \cdot C_f$. In practice $B$ is typically chosen between ten and a few hundred, so the overall computational budget is dominated by $B$ evaluations of the base network.
 
-Motivated by the masking semantics and computational issues above, we now outline a mask-aware approach to Shapley-value feature attribution in which the model itself learns how to interpret missing features. The aim is to remove the dependence on arbitrary background distributions, keep all evaluations in-distribution, and make the notion of ``feature absence'' an explicit, learned part of the predictor.
+This status quo explains the tension highlighted above. On the one hand, the Shapley value is formally defined in terms of the conditional masked predictor $S \mapsto \mathbb{E}[f(X)\mid X_S = x_S]$, which provides the Bayes-optimal notion of ``prediction under partial information''. On the other hand, conditional masking is rarely implemented in practice because it requires an additional high-dimensional generative model and greatly increases $C_{\text{mask}}$. As a result, most practical SHAP pipelines adopt marginal or baseline-substitution semantics paired with DeepSHAP, trading off the faithfulness of the underlying value function $v(S)$ in exchange for tractability.
 
-\subsection{Problem: Defining Feature Absence}
+\section{Input Mask-Aware Models for Shapley Attribution}
+\label{sec:mask-aware}
 
-Traditional Shapley methods (e.g., SHAP, Captum ShapleyValueSampling) rely on an external rule to decide what a ``missing'' feature means: zeros, training-set averages, or samples from a background distribution. Because typical models are trained only on fully observed inputs, masking features at attribution time produces off-manifold hybrids and makes the resulting Shapley values sensitive to the chosen background rather than to the model's internal semantics. The consequence is that we do not evaluate the conditional distribution the model should follow when only a subset of features is observed.
+The analysis in the previous sections singles out the \textbf{conditional masked predictor}
+\[
+\mathbb{E}\bigl[f(X) \mid X_S = x_S\bigr]
+\]
+as the most faithful way to define the value function $v(S)$ when only a coalition $S$ of features is treated as known.
+In practice, however, this requires access to the conditional distribution $P(X_{N \setminus S} \mid X_S)$.
+Our goal in this section is to approximate these conditional masked predictions with a single model that is trained from the beginning to handle missing features.
 
-\subsection{Core Idea}
+The key idea is a \emph{mask-aware} approach: instead of defining the masked predictor $S \mapsto f(x; S)$ externally via baselines or background samples, we train a predictive model that takes as input both the feature vector and an explicit mask that indicates which coordinates are observed.
+This model is exposed during training to random coalitions of observed features, so that it learns to make predictions from partial information.
+Once such a model is trained, we use it as the masked predictor inside the Shapley game and compute feature attributions by sampling permutations as in the original Shapley definition.
 
-Train a predictive model that is explicitly aware of feature masking, so that absence has a defined, learned meaning inside the model. Then compute Shapley values directly through this mask interface—without any external background distribution.
+\subsection{Training with Feature Masks}
 
-\subsection{Proposed Solution}
+We introduce an \emph{input mask-aware} predictor
+\[
+\tilde f : \mathbb{R}^n \times \{0,1\}^n \to \mathbb{R}, \qquad
+(x,m) \mapsto \tilde f(x,m),
+\]
+where $m_i = 1$ indicates that feature $i$ is observed and $m_i = 0$ indicates that feature $i$ is masked.
+During training, each example $(x,y)$ from the data distribution is paired with a randomly sampled mask $m \in \{0,1\}^n$.
+We form a masked input together with its mask and train $\tilde f$ to predict $y$.
 
-\begin{enumerate}
-    \item \textbf{Train with random feature masks.} During training, randomly mask subsets of input features (setting them to a fixed value or a special embedding) so the model learns to produce meaningful predictions under partial information:
-    \[
-    x' = x \odot m, \quad m \sim \text{Bernoulli}(p).
-    \]
-    \item \textbf{Learn conditional inference under missingness.} Because masked inputs appear during training, the model learns to approximate $f(x_S)$ when only subset $S$ is available. The mask channel gives direct access to the conditional behaviour the Shapley game needs and lets us evaluate the conditional distribution that is actually desired.
-    \item \textbf{Compute Shapley values directly via masking.} During attribution, sample feature subsets $S$ using the same masking mechanism and evaluate
-    \[
-    \phi_i = \mathbb{E}_{S \subseteq N \setminus \{i\}} \bigl[f(x_{S \cup \{i\}}) - f(x_S)\bigr].
-    \]
-    No background distribution is needed—the mask itself encodes absence. Every evaluation remains in-distribution because the model was trained to handle masked inputs.
-    \item \textbf{Results.} Attributions are causally meaningful (absence is a learned intervention), computation stays faithful to the Shapley definition, off-manifold artefacts disappear, and the same mask interface can support conditional or interventional variants of Shapley by varying the mask sampling strategy.
-\end{enumerate}
+One simple implementation is to zero out masked coordinates and feed both the masked vector and the mask to the network, for example
+\[
+x' = x \odot m,
+\]
+where $\odot$ denotes coordinatewise multiplication.
+Writing $M$ for a random mask drawn from some distribution over $\{0,1\}^n$ that includes the full-information mask $M = \mathbf{1}$, we minimise an expected loss of the form
+\[
+\mathbb{E}\Bigl[ \ell\bigl(\tilde f(X \odot M, M),\, Y\bigr) \Bigr]
+\]
+over the parameters of $\tilde f$.
+Intuitively, this training procedure encourages the model to make coherent predictions from arbitrary coalitions $S$ of observed features.
+After training, we define the \textbf{mask-aware masked predictor} by
+\[
+f_{\text{mask}}(x; S)
+:= \tilde f\bigl(x \odot \mathbf{1}_S,\, \mathbf{1}_S\bigr),
+\]
+where $\mathbf{1}_S \in \{0,1\}^n$ is the indicator of coalition $S$.
+Because masked inputs of this form appear during training, the evaluations $S \mapsto f_{\text{mask}}(x; S)$ remain on-manifold with respect to the training distribution of masked examples.
+Heuristically, $f_{\text{mask}}(x; S)$ acts as a data-driven approximation to the conditional masked predictor $g_S(x_S)$ without requiring an explicit model for $P(X_{N \setminus S} \mid X_S)$.
+
+\subsection{Shapley Values with a Mask-Aware Masked Predictor}
+
+Given $f_{\text{mask}}(x; S)$, we define the associated value function
+\[
+v_{\text{mask}}(S) = f_{\text{mask}}(x; S) - f_{\text{mask}}(x; \emptyset)
+\]
+for all coalitions $S \subseteq N$.
+By construction, $v_{\text{mask}}(\emptyset) = 0$, and
+\[
+v_{\text{mask}}(N)
+= f_{\text{mask}}(x; N) - f_{\text{mask}}(x; \emptyset)
+= f(x) - f_{\text{mask}}(x; \emptyset),
+\]
+so that Shapley attributions for the game $(N, v_{\text{mask}})$ decompose the prediction above the mask-aware baseline $f_{\text{mask}}(x; \emptyset)$.
+
+We then compute Shapley values in the usual permutation-based way, simply replacing the original masked predictor $f(x; S)$ with $f_{\text{mask}}(x; S)$.
+For feature $i$ we have
+\[
+\phi_i(x)
+= \frac{1}{n!} \sum_{\pi \in \Pi(N)}
+\Bigl[
+  f_{\text{mask}}\bigl(x; S_\pi^i \cup \{i\}\bigr)
+  - f_{\text{mask}}\bigl(x; S_\pi^i\bigr)
+\Bigr],
+\]
+where $S_\pi^i$ is the set of features that appear before $i$ in permutation $\pi$.
+As before, this can be interpreted as the expected marginal change in the prediction when feature $i$ is added to a coalition of previously included features in a uniformly random ordering, but now the marginal contributions are computed with respect to the mask-aware masked predictor $f_{\text{mask}}$.
+
+In practice, we approximate the average over permutations by Monte Carlo sampling.
+Let $P$ denote the number of sampled permutations.
+For each permutation $\pi$ we traverse the features once, maintain the growing coalition $S_\pi^0 \subset S_\pi^1 \subset \cdots \subset S_\pi^n$, and record the corresponding increments
+\[
+f_{\text{mask}}\bigl(x; S_\pi^{k} \cup \{\pi_{k+1}\}\bigr)
+  - f_{\text{mask}}\bigl(x; S_\pi^{k}\bigr),
+\qquad k = 0,\dots,n-1.
+\]
+Averaging these increments over permutations yields an estimate of the Shapley values $\phi_i(x)$.
+
+Let $C_f^{\text{mask}}$ denote the cost of a single forward pass of the mask-aware predictor $\tilde f$ on one masked input.
+The Monte Carlo estimator described above requires on the order of $P \cdot n$ masked evaluations per input, so the total cost of computing all feature attributions for a single $x$ is
+\[
+\text{cost} \;\approx\; P \cdot n \cdot C_f^{\text{mask}}.
+\]
+Each masked evaluation is a single forward pass of the same network used for ordinary prediction, and no background dataset or separate conditional sampler is required.
+
+\section{Discussion and Notes}
+\label{sec:discussion}
+
+\paragraph{Permutation cost and scalability.}
+Although the mask-aware approach changes how the masked predictor $S \mapsto f(x; S)$ is defined, it does not remove the combinatorial structure of the Shapley value itself.
+Exact evaluation still involves $n!$ permutations per feature, which is infeasible even for moderate $n$.
+Our method therefore relies on the same Monte Carlo approximation over permutations as classical Shapley sampling schemes: with $P$ sampled permutations, the cost per input is on the order of $P \cdot n$ forward passes of the mask-aware predictor.
+This is tractable for moderate $n$ and moderate $P$, but the permutation sampling step remains a dominant bottleneck for very high-dimensional inputs.
+
+\paragraph{Relation to marginal SHAP and DeepSHAP.}
+Mainstream SHAP implementations for deep networks typically adopt marginal or baseline-based masking semantics and accelerate the permutation sum using DeepSHAP (or more generally DeepLIFT-style) propagation rules.
+As discussed in Section~\ref{sec:computational-challenges}, this yields a cost on the order of $B \cdot C_f$ per input, where $B$ is the number of background points and $C_f$ is the cost of one forward and backward pass of the original network.
+Our proposal moves in the opposite direction.
+We change the masked predictor to a mask-aware model that approximates the conditional masked predictor $g_S(x_S)$, and we then apply the original permutation-based Shapley definition to this learned value function.
+Because the semantics of missingness are now encoded inside $\tilde f$, the DeepLIFT-style collapse of the permutation sum does not apply in the same way, and we pay the $P \cdot n$ factor from permutation sampling.
+The intended benefit is that $v_{\text{mask}}$ is closer to the conditional Shapley game than the marginal or fixed-baseline alternatives that DeepSHAP typically uses.
+
+\paragraph{Design choices and variants.}
+Several components of the mask-aware construction can be varied without changing the overall framework.
+These include the distribution over masks used during training (for example, focusing on coalitions of a given size, or biasing towards small or large $|S|$), the way in which masks are injected into the network (zeroing inputs, using learned mask embeddings, or both), and the number $P$ of permutations used during attribution.
+In our experiments we adopt simple, architecture-agnostic choices for these components and focus on the central question: whether replacing marginal or baseline-based masking with a learned mask-aware predictor leads to Shapley attributions that better approximate the conditional game $(N, v)$ on both synthetic and real datasets.
 
 \end{document}
