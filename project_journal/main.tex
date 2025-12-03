@@ -334,18 +334,20 @@ Once such a model is trained, we use it as the masked predictor inside the Shapl
 
 We introduce an \emph{input mask-aware} predictor
 \[
-\tilde f : \mathbb{R}^n \times \{0,1\}^n \to \mathbb{R}, \qquad
-(x,m) \mapsto \tilde f(x,m),
+\tilde f : \mathbb{R}^n \times \{0,1\}^n \to \mathbb{R}
 \]
-where $m_i = 1$ indicates that feature $i$ is observed and $m_i = 0$ indicates that feature $i$ is masked.
+that acts on pairs consisting of a feature vector and a binary mask.
+We write $z = (x,m)$ for such a pair, where $m_i = 1$ indicates that feature $i$ is observed and $m_i = 0$ indicates that feature $i$ is masked.
 During training, each example $(x,y)$ from the data distribution is paired with a randomly sampled mask $m \in \{0,1\}^n$.
 We form a masked input together with its mask and train $\tilde f$ to predict $y$.
 
-One simple implementation is to zero out masked coordinates and feed both the masked vector and the mask to the network, for example
+To make the distinction between ``unknown'' features and features that are genuinely equal to zero explicit, we use a masking scheme with an additional mask channel.
+Concretely, we zero out masked coordinates \emph{and} append a binary indicator for whether each feature is used, bundling the result into a single input vector:
 \[
-x' = x \odot m,
+z = (x \odot m, m),
 \]
-where $\odot$ denotes coordinatewise multiplication.
+where $\odot$ denotes coordinatewise multiplication and $z$ can be viewed as a $2 \times n$ matrix or a $2n$-dimensional vector with one row for masked feature values and one row for mask bits ($1$ if the feature is used, $0$ if it is unknown).
+For masked features we therefore pass $x_i \odot m_i = 0$ together with $m_i = 0$, so the network can learn that these zeros correspond to missing information rather than actual zero-valued features.
 Writing $M$ for a random mask drawn from some distribution over $\{0,1\}^n$ that includes the full-information mask $M = \mathbf{1}$, we minimise an expected loss of the form
 \[
 \mathbb{E}\Bigl[ \ell\bigl(\tilde f(X \odot M, M),\, Y\bigr) \Bigr]
@@ -360,6 +362,13 @@ f_{\text{mask}}(x; S)
 where $\mathbf{1}_S \in \{0,1\}^n$ is the indicator of coalition $S$.
 Because masked inputs of this form appear during training, the evaluations $S \mapsto f_{\text{mask}}(x; S)$ remain on-manifold with respect to the training distribution of masked examples.
 Heuristically, $f_{\text{mask}}(x; S)$ acts as a data-driven approximation to the conditional masked predictor $g_S(x_S)$ without requiring an explicit model for $P(X_{N \setminus S} \mid X_S)$.
+This mask-aware construction directly addresses the three issues highlighted above:
+\begin{enumerate}
+  \item \textbf{Baseline prediction:} The baseline that anchors the game is no longer imposed by an arbitrary reference vector such as a zero or mean baseline; instead, $f_{\text{mask}}(x; \emptyset)$ is learned in-model from masked training examples.
+  \item \textbf{Masked predictor semantics:} The semantics of the masked predictor are implemented by an explicit mask channel that tells the network which coordinates are known and which are unknown, rather than by feeding hybrids that splice together $x$ and a baseline input.
+  In particular, we avoid ``half baseline'' inputs of the form $(x_S, x^{(0)}_{N \setminus S})$ or $(x_S, \bar{x}_{N \setminus S})$ that can place the model far off the data manifold.
+  \item \textbf{Faithfulness to the original model:} Every masked input used in the Shapley game has the same structure $(x \odot \mathbf{1}_S, \mathbf{1}_S)$ that the predictor was exposed to during training, which improves the faithfulness of $v_{\text{mask}}(S)$ to how the underlying model uses its features on realistic inputs.
+\end{enumerate}
 
 \subsection{Shapley Values with a Mask-Aware Masked Predictor}
 
