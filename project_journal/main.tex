@@ -431,10 +431,15 @@ Our proposal moves in the opposite direction.
 We change the masked predictor to a mask-aware model that approximates the conditional masked predictor $g_S(x_S)$, and we then apply the original permutation-based Shapley definition to this learned value function.
 Because the semantics of missingness are now encoded inside $\tilde f$, the DeepLIFT-style collapse of the permutation sum does not apply in the same way, and we pay the $P \cdot n$ factor from permutation sampling.
 The intended benefit is that $v_{\text{mask}}$ is closer to the conditional Shapley game than the marginal or fixed-baseline alternatives that DeepSHAP typically uses.
+A practical drawback is that this requires training a new mask-aware predictor $\tilde f$ from scratch, rather than reusing an existing deployed model $f$ as current SHAP workflows often do.
 
 \paragraph{Design choices and variants.}
 Several components of the mask-aware construction can be varied without changing the overall framework.
 These include the distribution over masks used during training (for example, focusing on coalitions of a given size, or biasing towards small or large $|S|$), the way in which masks are injected into the network (zeroing inputs, using learned mask embeddings, or both), and the number $P$ of permutations used during attribution.
 In our experiments we adopt simple, architecture-agnostic choices for these components and focus on the central question: whether replacing marginal or baseline-based masking with a learned mask-aware predictor leads to Shapley attributions that better approximate the conditional game $(N, v)$ on both synthetic and real datasets.
+
+% Notes:
+% 1. Conditional masking is already used, so the approach is not entirely new.
+% 2. We still need to review prior literature to quantify how extensively conditional masking has been explored.
 
 \end{document}
