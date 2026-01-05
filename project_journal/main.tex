@@ -66,7 +66,7 @@ The goal is to quantify how much each feature in $x$ contributes to this predict
 We formulate this task as a Shapley value computation by treating each \textbf{original feature as a player} in a cooperative game.
 We index the features by the player set $N = \{1,\dots,n\}$, with feature $i$ corresponding to coordinate $x_i$.
 
-To connect the model $f$ with coalitional games we introduce the \textbf{masked predictor} $f(x; S)$.
+To connect the model $f$ with coalitional games we introduce the \textbf{masked prediction function} $f(x; S)$.
 For any subset (\textbf{coalition}) $S \subseteq N$ we interpret $S$ as the set of features that are treated as known, and we define $f(x; S)$ to be the model prediction when only the coordinates in $S$ are available and the remaining coordinates $N \setminus S$ are treated as missing.
 Notice that we have not yet specified how to compute $f(x; S)$ in practice.
 This is a \textbf{major modeling choice} when computing Shapley values, and we will discuss it in detail in the next section.
