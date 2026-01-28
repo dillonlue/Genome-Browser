@@ -1,0 +1,53 @@
+from pathlib import Path
+
+REPO_ROOT = Path(workflow.basedir).resolve().parent
+PIPELINE_JSON = REPO_ROOT / "02_train" / "01_bpnet_paper_pipeline.json"
+OUTPUT_DIR = REPO_ROOT / "02_train" / "results" / "01_bpnet_paper"
+OUTPUT_PREFIX = OUTPUT_DIR / "01_bpnet_paper"
+OUTPUT_MODEL = f"{OUTPUT_PREFIX}.final.torch"
+# Source: Zenodo "ChromBPNet data files" (Pampari, Shcherbina, Kundaje; Dec 10, 2022),
+# record 7422965 / DOI:10.5281/zenodo.7422965 (data files for ChromBPNet software).
+MOTIF_DB_URL = (
+    "https://zenodo.org/records/7422965/files/motifs.meme.txt?download=1"
+)
+MOTIF_DB_MD5 = "21b0d5f5496efe677567db04304ed0de"
+MOTIF_DB_TARGET = REPO_ROOT / "02_train" / "resources" / "01_motifs.meme.txt"
+MOTIF_DB_DIR = MOTIF_DB_TARGET.parent
+
+workdir: str(REPO_ROOT)
+
+rule all:
+    input:
+        OUTPUT_MODEL
+
+rule r01_stage_motif_db:
+    output:
+        MOTIF_DB_TARGET
+    params:
+        motif_dir=str(MOTIF_DB_DIR),
+        url=MOTIF_DB_URL,
+        md5=MOTIF_DB_MD5,
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p {params.motif_dir}
+        export MOTIF_URL="{params.url}"
+        export MOTIF_MD5="{params.md5}"
+        export MOTIF_OUT="{output}"
+        python -c "import hashlib, os, pathlib, urllib.request; url=os.environ['MOTIF_URL']; expected=os.environ['MOTIF_MD5']; out_path=pathlib.Path(os.environ['MOTIF_OUT']); tmp_path=out_path.with_suffix(out_path.suffix + '.tmp'); data=urllib.request.urlopen(url).read(); tmp_path.write_bytes(data); md5=hashlib.md5(tmp_path.read_bytes()).hexdigest(); assert md5 == expected, 'md5 mismatch: %s != %s' % (md5, expected); tmp_path.replace(out_path)"
+        """
+
+rule r02_run_bpnet_paper_pipeline:
+    input:
+        pipeline=str(PIPELINE_JSON),
+        motifs=str(MOTIF_DB_TARGET),
+    output:
+        model=OUTPUT_MODEL,
+    params:
+        output_dir=str(OUTPUT_DIR),
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p {params.output_dir}
+        bpnet pipeline -p {input.pipeline}
+        """

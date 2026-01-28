@@ -1,0 +1,163 @@
+# Download + extract raw data for motif removal.
+#
+# Original manual download commands (kept here for provenance):
+#   wget https://zenodo.org/records/3371216/files/data.tar.gz?download=1
+#   mv data.tar.gz?download=1 data.tar.gz
+#   wget https://zenodo.org/api/records/4294904/files-archive
+#   mv files-archive 1.zip
+#
+# This rule mirrors those steps, assigns clearer filenames, and extracts the
+# archives in a single step.
+
+import os
+
+# Keep raw data colocated with this workflow so running from repo root
+# doesn't require `-d 01_download_data`.
+RAW_DATA_DIR = os.path.join("01_download_data", "raw_data")
+DATA_URL = "https://zenodo.org/records/3371216/files/data.tar.gz?download=1"
+FILES_URL = "https://zenodo.org/api/records/4294904/files-archive"
+# Paper: "Chromatin accessibility is a two-tier process regulated by transcription factor pioneering and enhancer activation"
+# (Brennan et al., bioRxiv 2022.12.20.520743; see papers/Zeitlinger_Zelda.txt).
+ZELDA_DATA_URL = "https://zenodo.org/api/records/8075860/files-archive"
+# Zelda paper code/data release (zeitlingerlab/Brennan_Zelda_2023).
+ZELDA_CODE_URL = "https://zenodo.org/api/records/8118135/files-archive"
+
+DATA_TAR = os.path.join(RAW_DATA_DIR, "01_zenodo_3371216_data.tar.gz")
+DATA_DIR = os.path.join(RAW_DATA_DIR, "01_zenodo_3371216_data")
+FILES_ZIP = os.path.join(RAW_DATA_DIR, "02_zenodo_4294904_files.zip")
+FILES_DIR = os.path.join(RAW_DATA_DIR, "02_zenodo_4294904_files")
+ZELDA_DATA_ZIP = os.path.join(
+    RAW_DATA_DIR, "03_Zeitlinger_Zelda_8075860_files.zip"
+)
+ZELDA_DATA_DIR = os.path.join(
+    RAW_DATA_DIR, "03_Zeitlinger_Zelda_8075860_files"
+)
+ZELDA_CODE_ZIP = os.path.join(
+    RAW_DATA_DIR, "04_Zeitlinger_Zelda_8118135_files.zip"
+)
+ZELDA_CODE_DIR = os.path.join(
+    RAW_DATA_DIR, "04_Zeitlinger_Zelda_8118135_files"
+)
+ZELDA_CODE_UNZIP_DONE = os.path.join(
+    ZELDA_CODE_DIR, "05_unzip_complete.txt"
+)
+PWM_CWM_TAR = os.path.join(FILES_DIR, "PWM,CWM,ChIP-nexus-profiles.tar.gz")
+PWM_CWM_DIR = os.path.join(FILES_DIR, "PWM,CWM,ChIP-nexus-profiles")
+OUTPUT_TAR = os.path.join(FILES_DIR, "output.tar.gz")
+OUTPUT_DIR = os.path.join(FILES_DIR, "output")
+PWM_LOGO_DIR = os.path.join("01_download_data", "output", "01_pwm_logos")
+PWM_LOGO_DONE = os.path.join(PWM_LOGO_DIR, "01_logos_complete.txt")
+PWM_LOGO_SCRIPT = os.path.join("01_download_data", "scripts", "01_render_pwm_logos.py")
+
+# These Zenodo downloads cover the BPNet paper data (see papers/BPNet.txt).
+rule _01_download_and_extract_data:
+    output:
+        data_tar=DATA_TAR,
+        data_dir=directory(DATA_DIR),
+        files_zip=FILES_ZIP,
+        files_dir=directory(FILES_DIR),
+    params:
+        data_url=DATA_URL,
+        files_url=FILES_URL,
+        raw_dir=RAW_DATA_DIR,
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p {params.raw_dir} {output.data_dir} {output.files_dir}
+        wget -O {output.data_tar} "{params.data_url}"
+        wget -O {output.files_zip} "{params.files_url}"
+        tar -xzf {output.data_tar} -C {output.data_dir}
+        unzip -q {output.files_zip} -d {output.files_dir}
+        """
+
+# Zelda paper data/code downloads.
+# Paper: "Chromatin accessibility is a two-tier process regulated by transcription factor pioneering and enhancer activation"
+# (Brennan et al., bioRxiv 2022.12.20.520743).
+# Original manual commands (kept here for provenance):
+#   wget https://zenodo.org/api/records/8075860/files-archive
+#   mv files-archive 03_Zeitlinger_Zelda_8075860_files.zip
+#   wget https://zenodo.org/api/records/8118135/files-archive
+#   mv files-archive 04_Zeitlinger_Zelda_8118135_files.zip
+rule _04_download_and_extract_zelda_data:
+    output:
+        zelda_data_zip=ZELDA_DATA_ZIP,
+        zelda_data_dir=directory(ZELDA_DATA_DIR),
+        zelda_code_zip=ZELDA_CODE_ZIP,
+        zelda_code_dir=directory(ZELDA_CODE_DIR),
+    params:
+        zelda_data_url=ZELDA_DATA_URL,
+        zelda_code_url=ZELDA_CODE_URL,
+        raw_dir=RAW_DATA_DIR,
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p {params.raw_dir} {output.zelda_data_dir} {output.zelda_code_dir}
+        wget -c -O {output.zelda_data_zip} "{params.zelda_data_url}"
+        wget -c -O {output.zelda_code_zip} "{params.zelda_code_url}"
+        unzip -q {output.zelda_data_zip} -d {output.zelda_data_dir}
+        unzip -q {output.zelda_code_zip} -d {output.zelda_code_dir}
+        """
+
+rule _05_unzip_zelda_code_archives:
+    input:
+        zelda_code_dir=ZELDA_CODE_DIR,
+    output:
+        done=ZELDA_CODE_UNZIP_DONE,
+    shell:
+        r"""
+        set -euo pipefail
+        dir="{input.zelda_code_dir}"
+        archive="$dir/Brennan_Zelda_2023-v.1.0.3.zip"
+        if [ ! -f "$archive" ]; then
+            echo "Missing expected archive: $archive" >&2
+            exit 1
+        fi
+        name="$(basename "$archive" .zip)"
+        mkdir -p "$dir/$name"
+        unzip -q -n "$archive" -d "$dir/$name"
+        touch "{output.done}"
+        """
+
+rule _02_extract_pwm_cwm_chip_nexus_profiles:
+    input:
+        tar=PWM_CWM_TAR,
+    output:
+        extracted=directory(PWM_CWM_DIR),
+    params:
+        files_dir=FILES_DIR,
+    shell:
+        r"""
+        set -euo pipefail
+        tar -xzf {input.tar} -C {params.files_dir}
+        """
+
+rule _03_extract_output_archive:
+    input:
+        tar=OUTPUT_TAR,
+    output:
+        extracted=directory(OUTPUT_DIR),
+    params:
+        files_dir=FILES_DIR,
+    shell:
+        r"""
+        set -euo pipefail
+        tar -xzf {input.tar} -C {params.files_dir}
+        """
+
+rule _06_render_pwm_logos:
+    input:
+        pwm_dir=PWM_CWM_DIR,
+    output:
+        done=PWM_LOGO_DONE,
+    params:
+        pfm_glob=os.path.join(PWM_CWM_DIR, "*", "PFM.txt"),
+        out_dir=PWM_LOGO_DIR,
+        script=PWM_LOGO_SCRIPT,
+    shell:
+        r"""
+        set -euo pipefail
+        python {params.script} \
+            --pfm-glob "{params.pfm_glob}" \
+            --out-dir "{params.out_dir}" \
+            --done-file "{output.done}"
+        """
