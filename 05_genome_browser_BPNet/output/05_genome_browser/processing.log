@@ -1,0 +1,6 @@
+regions: bpnet_top_rank1, bpnet_top_rank2, bpnet_top_rank3, bpnet_top_rank4, bpnet_top_rank5, bpnet_top_rank6, bpnet_top_rank7, bpnet_top_rank8, bpnet_top_rank9, bpnet_top_rank10, bpnet_random_rank1, bpnet_random_rank2, bpnet_random_rank3, bpnet_random_rank4, bpnet_random_rank5, bpnet_random_rank6, bpnet_random_rank7, bpnet_random_rank8, bpnet_random_rank9, bpnet_random_rank10
+raw_tracks: Oct4 observed (+), Oct4 observed (-), Oct4 predicted (+), Oct4 predicted (-), Sox2 observed (+), Sox2 observed (-), Sox2 predicted (+), Sox2 predicted (-), Nanog observed (+), Nanog observed (-), Nanog predicted (+), Nanog predicted (-), Klf4 observed (+), Klf4 observed (-), Klf4 predicted (+), Klf4 predicted (-)
+contrib_tracks: Oct4 attribution (profile), Oct4 attribution (counts), Sox2 attribution (profile), Sox2 attribution (counts), Nanog attribution (profile), Nanog attribution (counts), Klf4 attribution (profile), Klf4 attribution (counts)
+motif_tracks: 
+bed_tracks: 
+bar_tracks: 

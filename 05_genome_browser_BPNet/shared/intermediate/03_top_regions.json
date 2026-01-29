@@ -1,0 +1,104 @@
+{
+  "regions": [
+    {
+      "chr": "chr9",
+      "start": 3002059,
+      "region_name": "bpnet_top_rank1"
+    },
+    {
+      "chr": "chr9",
+      "start": 3001633,
+      "region_name": "bpnet_top_rank2"
+    },
+    {
+      "chr": "chr1",
+      "start": 134534723,
+      "region_name": "bpnet_top_rank3"
+    },
+    {
+      "chr": "chr8",
+      "start": 86393525,
+      "region_name": "bpnet_top_rank4"
+    },
+    {
+      "chr": "chr8",
+      "start": 89003241,
+      "region_name": "bpnet_top_rank5"
+    },
+    {
+      "chr": "chr9",
+      "start": 31018381,
+      "region_name": "bpnet_top_rank6"
+    },
+    {
+      "chr": "chr1",
+      "start": 36985571,
+      "region_name": "bpnet_top_rank7"
+    },
+    {
+      "chr": "chr8",
+      "start": 43320349,
+      "region_name": "bpnet_top_rank8"
+    },
+    {
+      "chr": "chr9",
+      "start": 3002491,
+      "region_name": "bpnet_top_rank9"
+    },
+    {
+      "chr": "chr8",
+      "start": 48751664,
+      "region_name": "bpnet_top_rank10"
+    },
+    {
+      "chr": "chr9",
+      "start": 43765093,
+      "region_name": "bpnet_random_rank1"
+    },
+    {
+      "chr": "chr1",
+      "start": 140429008,
+      "region_name": "bpnet_random_rank2"
+    },
+    {
+      "chr": "chr8",
+      "start": 20593526,
+      "region_name": "bpnet_random_rank3"
+    },
+    {
+      "chr": "chr1",
+      "start": 80403208,
+      "region_name": "bpnet_random_rank4"
+    },
+    {
+      "chr": "chr8",
+      "start": 10665810,
+      "region_name": "bpnet_random_rank5"
+    },
+    {
+      "chr": "chr9",
+      "start": 57510219,
+      "region_name": "bpnet_random_rank6"
+    },
+    {
+      "chr": "chr1",
+      "start": 152070157,
+      "region_name": "bpnet_random_rank7"
+    },
+    {
+      "chr": "chr8",
+      "start": 20320868,
+      "region_name": "bpnet_random_rank8"
+    },
+    {
+      "chr": "chr9",
+      "start": 102961106,
+      "region_name": "bpnet_random_rank9"
+    },
+    {
+      "chr": "chr8",
+      "start": 125778604,
+      "region_name": "bpnet_random_rank10"
+    }
+  ]
+}

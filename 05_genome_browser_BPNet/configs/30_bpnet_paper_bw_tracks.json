@@ -1,0 +1,134 @@
+{
+  "tracks": [
+    {
+      "track_name": "Oct4 observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.pos.bw"
+    },
+    {
+      "track_name": "Oct4 observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.neg.bw"
+    },
+    {
+      "track_name": "Oct4 predicted (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Oct4.preds.pos.bw"
+    },
+    {
+      "track_name": "Oct4 predicted (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Oct4.preds.neg.bw"
+    },
+    {
+      "track_name": "Sox2 observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.pos.bw"
+    },
+    {
+      "track_name": "Sox2 observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.neg.bw"
+    },
+    {
+      "track_name": "Sox2 predicted (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Sox2.preds.pos.bw"
+    },
+    {
+      "track_name": "Sox2 predicted (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Sox2.preds.neg.bw"
+    },
+    {
+      "track_name": "Nanog observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.pos.bw"
+    },
+    {
+      "track_name": "Nanog observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.neg.bw"
+    },
+    {
+      "track_name": "Nanog predicted (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Nanog.preds.pos.bw"
+    },
+    {
+      "track_name": "Nanog predicted (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Nanog.preds.neg.bw"
+    },
+    {
+      "track_name": "Klf4 observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.pos.bw"
+    },
+    {
+      "track_name": "Klf4 observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.neg.bw"
+    },
+    {
+      "track_name": "Klf4 predicted (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Klf4.preds.pos.bw"
+    },
+    {
+      "track_name": "Klf4 predicted (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Klf4.preds.neg.bw"
+    },
+    {
+      "track_name": "Original paper region (400bp)",
+      "file_type": "bed",
+      "bed_path": "05_genome_browser_BPNet/configs/30_paper_original_regions.bed"
+    },
+    {
+      "track_id": "paper_contrib_agg",
+      "track_name": "BPNet attribution (aggregate)",
+      "file_type": "bpnet_lite_contribution",
+      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs_agg.attr.npz",
+      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs.ohe.npz",
+      "bed_path": "05_genome_browser_BPNet/shared/intermediate/30_paper_regions.bed",
+      "shared_y_axis_scale_group": "paper_contrib"
+    },
+    {
+      "track_id": "paper_contrib_oct4",
+      "track_name": "Oct4 attribution (combined)",
+      "file_type": "bpnet_lite_contribution",
+      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs_Oct4.attr.npz",
+      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs.ohe.npz",
+      "bed_path": "05_genome_browser_BPNet/shared/intermediate/30_paper_regions.bed",
+      "shared_y_axis_scale_group": "paper_contrib"
+    },
+    {
+      "track_id": "paper_contrib_sox2",
+      "track_name": "Sox2 attribution (combined)",
+      "file_type": "bpnet_lite_contribution",
+      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs_Sox2.attr.npz",
+      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs.ohe.npz",
+      "bed_path": "05_genome_browser_BPNet/shared/intermediate/30_paper_regions.bed",
+      "shared_y_axis_scale_group": "paper_contrib"
+    },
+    {
+      "track_id": "paper_contrib_nanog",
+      "track_name": "Nanog attribution (combined)",
+      "file_type": "bpnet_lite_contribution",
+      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs_Nanog.attr.npz",
+      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs.ohe.npz",
+      "bed_path": "05_genome_browser_BPNet/shared/intermediate/30_paper_regions.bed",
+      "shared_y_axis_scale_group": "paper_contrib"
+    },
+    {
+      "track_id": "paper_contrib_klf4",
+      "track_name": "Klf4 attribution (combined)",
+      "file_type": "bpnet_lite_contribution",
+      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs_Klf4.attr.npz",
+      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/30_paper_contribs.ohe.npz",
+      "bed_path": "05_genome_browser_BPNet/shared/intermediate/30_paper_regions.bed",
+      "shared_y_axis_scale_group": "paper_contrib"
+    }
+  ]
+}

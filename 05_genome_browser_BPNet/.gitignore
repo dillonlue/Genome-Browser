@@ -1,0 +1,9 @@
+# Generated outputs
+output/**/*.png
+output/**/.snakemake_timestamp
+
+# Intermediate attribution bundles
+shared/intermediate/*.npz
+
+# Python cache
+scripts/__pycache__/

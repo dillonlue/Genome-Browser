@@ -1,0 +1,6 @@
+regions: Lefty1 enhancer, Zfp281 enhancer, Sall1 enhancer
+raw_tracks: Oct4 observed (+), Oct4 observed (-), Oct4 predicted (+), Oct4 predicted (-), Sox2 observed (+), Sox2 observed (-), Sox2 predicted (+), Sox2 predicted (-), Nanog observed (+), Nanog observed (-), Nanog predicted (+), Nanog predicted (-), Klf4 observed (+), Klf4 observed (-), Klf4 predicted (+), Klf4 predicted (-)
+contrib_tracks: BPNet attribution (aggregate), Oct4 attribution (combined), Sox2 attribution (combined), Nanog attribution (combined), Klf4 attribution (combined)
+motif_tracks: 
+bed_tracks: Original paper region (400bp)
+bar_tracks: 

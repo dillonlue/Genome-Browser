@@ -1,0 +1,23 @@
+{
+  "window_span": 1000,
+  "regions": [
+    {
+      "chr": "chr1",
+      "start": 180924452,
+      "end": 180925452,
+      "region_name": "Lefty1 enhancer"
+    },
+    {
+      "chr": "chr1",
+      "start": 136679905,
+      "end": 136680905,
+      "region_name": "Zfp281 enhancer"
+    },
+    {
+      "chr": "chr8",
+      "start": 89003241,
+      "end": 89004241,
+      "region_name": "Sall1 enhancer"
+    }
+  ]
+}

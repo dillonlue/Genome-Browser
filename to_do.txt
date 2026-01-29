@@ -1,0 +1,8 @@
+Problem: `05_genome_browser_BPNet/output/05_main.html` looks very bad; output predictions really don't match the observed data for regions with high signal and regions that are randomly selected in test chromosomes
+Either the genome browser is not working, or the model is not as good as presented in paper.
+Unfortunately, I coded genome browser mostly with codex so don't understand most of the code.
+I think some genome browser regions are working though since I can reproduce plots from their paper:
+    - `05_genome_browser_BPNet/output/30_main.html`
+Maybe genome browser was not run correctly for `05_genome_browser_BPNet/output/05_main.html` but was run correctly for `05_genome_browser_BPNet/output/30_main.html`
+1. Code trace what is working: examples from paper
+2. Make sure genome browser is being applied exactly in the same way for the regions with high signal and regions randomly selected

@@ -1,0 +1,341 @@
+import os
+from pathlib import Path
+
+from snakemake.io import directory
+
+PYTHON_BIN = os.environ.get("PYTHON_BIN", "python")
+BPNET_PYTHON = os.environ.get("BPNET_PYTHON", PYTHON_BIN)
+
+TOP_N = 10
+RANDOM_N = 10
+WINDOW_SPAN = 1000
+OUTPUT_SPAN = 1000
+
+DEEPLIFT_H5 = (
+    "01_download_data/raw_data/02_zenodo_4294904_files/output/"
+    "nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/"
+    "null.deeplift.imp_score.h5"
+)
+CWM_DIR = "01_download_data/raw_data/02_zenodo_4294904_files/PWM,CWM,ChIP-nexus-profiles"
+
+
+def shared_path(*parts):
+    return str(Path("05_genome_browser_BPNet/shared").joinpath(*parts))
+
+
+def output_path(*parts):
+    return str(Path("05_genome_browser_BPNet/output").joinpath(*parts))
+
+
+OBSERVED_BWS = [
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.pos.bw",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.neg.bw",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.pos.bw",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.neg.bw",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.pos.bw",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.neg.bw",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.pos.bw",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.neg.bw",
+]
+
+PREDICTED_BWS = [
+    "01_download_data/raw_data/02_zenodo_4294904_files/Oct4.preds.pos.bw",
+    "01_download_data/raw_data/02_zenodo_4294904_files/Oct4.preds.neg.bw",
+    "01_download_data/raw_data/02_zenodo_4294904_files/Sox2.preds.pos.bw",
+    "01_download_data/raw_data/02_zenodo_4294904_files/Sox2.preds.neg.bw",
+    "01_download_data/raw_data/02_zenodo_4294904_files/Nanog.preds.pos.bw",
+    "01_download_data/raw_data/02_zenodo_4294904_files/Nanog.preds.neg.bw",
+    "01_download_data/raw_data/02_zenodo_4294904_files/Klf4.preds.pos.bw",
+    "01_download_data/raw_data/02_zenodo_4294904_files/Klf4.preds.neg.bw",
+]
+
+TASKS = ["Oct4", "Sox2", "Nanog", "Klf4"]
+
+ATTR_PROFILE_BY_TASK = [
+    shared_path("intermediate", f"02_top_attributions_{task}_profile.attr.npz")
+    for task in TASKS
+]
+ATTR_COUNTS_BY_TASK = [
+    shared_path("intermediate", f"02_top_attributions_{task}_counts.attr.npz")
+    for task in TASKS
+]
+
+PEAK_SUMMIT_BEDS = [
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/idr-optimal-set.summit.bed.gz",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/idr-optimal-set.summit.bed.gz",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/idr-optimal-set.summit.bed.gz",
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/idr-optimal-set.summit.bed.gz",
+]
+
+TEST_CHROMS = [
+    "chr1",
+    "chr8",
+    "chr9",
+]
+
+PAPER_REGIONS_TSV = "05_genome_browser_BPNet/configs/30_paper_regions.tsv"
+
+PAPER_CONTRIB_OHE = shared_path("intermediate", "30_paper_contribs.ohe.npz")
+PAPER_CONTRIB_AGG = shared_path("intermediate", "30_paper_contribs_agg.attr.npz")
+PAPER_CONTRIB_BY_TASK = [
+    shared_path("intermediate", f"30_paper_contribs_{task}.attr.npz") for task in TASKS
+]
+
+
+rule all:
+    input:
+        output_path("05_main.html"),
+        output_path("10_scatter.html"),
+        output_path("20_cwm_histograms", "20_main.html"),
+        output_path("30_main.html"),
+
+
+rule r01_select_top_region:
+    input:
+        h5=DEEPLIFT_H5,
+    output:
+        tsv=shared_path("intermediate", "01_top_regions.tsv"),
+    params:
+        script="05_genome_browser_BPNet/scripts/01_select_top_region.py",
+        top_n=TOP_N,
+        random_n=RANDOM_N,
+        seed=1234,
+        test_chroms=TEST_CHROMS,
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --deeplift-h5 {input.h5} \
+            --output-tsv {output.tsv} \
+            --top-n {params.top_n} \
+            --random-n {params.random_n} \
+            --seed {params.seed} \
+            --test-chroms {params.test_chroms}
+        """
+
+
+rule r02_subset_deeplift_attributions:
+    input:
+        top_tsv=rules.r01_select_top_region.output.tsv,
+        h5=DEEPLIFT_H5,
+    output:
+        attr_profile_npz=shared_path("intermediate", "02_top_attributions.attr.npz"),
+        attr_counts_npz=shared_path("intermediate", "02_top_attributions_counts.attr.npz"),
+        attr_profile_by_task=ATTR_PROFILE_BY_TASK,
+        attr_counts_by_task=ATTR_COUNTS_BY_TASK,
+        ohe_npz=shared_path("intermediate", "02_top_attributions.ohe.npz"),
+    params:
+        script="05_genome_browser_BPNet/scripts/02_subset_deeplift_attributions.py",
+        attr_profile_template=lambda _wildcards: shared_path(
+            "intermediate", "02_top_attributions_{task}_profile.attr.npz"
+        ),
+        attr_counts_template=lambda _wildcards: shared_path(
+            "intermediate", "02_top_attributions_{task}_counts.attr.npz"
+        ),
+        test_chroms=TEST_CHROMS,
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --deeplift-h5 {input.h5} \
+            --top-tsv {input.top_tsv} \
+            --output-attr-profile-npz {output.attr_profile_npz} \
+            --output-attr-counts-npz {output.attr_counts_npz} \
+            --output-attr-profile-template {params.attr_profile_template} \
+            --output-attr-counts-template {params.attr_counts_template} \
+            --output-ohe-npz {output.ohe_npz} \
+            --test-chroms {params.test_chroms}
+        """
+
+
+rule r03_build_browser_regions:
+    input:
+        top_tsv=rules.r01_select_top_region.output.tsv,
+    output:
+        bed=shared_path("intermediate", "03_top_windows.bed"),
+        json=shared_path("intermediate", "03_top_regions.json"),
+    params:
+        script="03_naive_motif_removal/scripts/04_build_ctcf_browser_regions.py",
+        python_bin=BPNET_PYTHON,
+        window_span=WINDOW_SPAN,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --top-tsv {input.top_tsv} \
+            --output-bed {output.bed} \
+            --output-json {output.json} \
+            --window-span {params.window_span}
+        """
+
+
+rule r04_genome_browser:
+    input:
+        regions=rules.r03_build_browser_regions.output.json,
+        bed=rules.r03_build_browser_regions.output.bed,
+        attr_profile_npz=rules.r02_subset_deeplift_attributions.output.attr_profile_npz,
+        attr_counts_npz=rules.r02_subset_deeplift_attributions.output.attr_counts_npz,
+        attr_profile_by_task=rules.r02_subset_deeplift_attributions.output.attr_profile_by_task,
+        attr_counts_by_task=rules.r02_subset_deeplift_attributions.output.attr_counts_by_task,
+        ohe_npz=rules.r02_subset_deeplift_attributions.output.ohe_npz,
+        tracks="05_genome_browser_BPNet/configs/01_bpnet_paper_tracks.json",
+        observed_bws=OBSERVED_BWS,
+        predicted_bws=PREDICTED_BWS,
+    output:
+        main_html=output_path("05_main.html"),
+        summary_tsv=output_path("05_summary_stats.tsv"),
+        indv_plots=directory(output_path("05_indv_plots")),
+    params:
+        script="03_naive_motif_removal/scripts/09_ctcf_genome_browser.py",
+        output_dir=output_path("05_genome_browser"),
+        indv_plots_dir=output_path("05_indv_plots"),
+        workers=1,
+        title="BPNet paper genome browser (top region)",
+        window_span=WINDOW_SPAN,
+        output_span=OUTPUT_SPAN,
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --region-config {input.regions} \
+            --track-config {input.tracks} \
+            --output-dir {params.output_dir} \
+            --num-workers {params.workers} \
+            --title "{params.title}" \
+            --window-span {params.window_span} \
+            --output-span {params.output_span} \
+            --main-html {output.main_html} \
+            --indv-plots-dir {params.indv_plots_dir} \
+            --summary-tsv {output.summary_tsv}
+        """
+
+
+rule r10_scatter_plot:
+    input:
+        peaks_beds=PEAK_SUMMIT_BEDS,
+        observed_bws=OBSERVED_BWS,
+        predicted_bws=PREDICTED_BWS,
+    output:
+        html=output_path("10_scatter.html"),
+    params:
+        script="05_genome_browser_BPNet/scripts/10_scatter_plot.py",
+        window_span=WINDOW_SPAN,
+        test_chroms=TEST_CHROMS,
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --peaks-beds {input.peaks_beds} \
+            --observed-bws {input.observed_bws} \
+            --predicted-bws {input.predicted_bws} \
+            --output-html {output.html} \
+            --window-span {params.window_span} \
+            --test-chroms {params.test_chroms}
+        """
+
+
+rule r20_cwm_score_histograms:
+    input:
+        h5=DEEPLIFT_H5,
+    output:
+        main_html=output_path("20_cwm_histograms", "20_main.html"),
+        summary_tsv=output_path("20_cwm_histograms", "20_summary.tsv"),
+        indv_plots=directory(output_path("20_cwm_histograms", "20_indv_plots")),
+    params:
+        script="05_genome_browser_BPNet/scripts/20_cwm_score_histograms.py",
+        cwm_dir=CWM_DIR,
+        test_chroms=TEST_CHROMS,
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --deeplift-h5 {input.h5} \
+            --cwm-dir {params.cwm_dir} \
+            --output-html {output.main_html} \
+            --summary-tsv {output.summary_tsv} \
+            --indv-plots-dir {output.indv_plots} \
+            --test-chroms {params.test_chroms}
+        """
+
+
+rule r30_build_paper_regions:
+    input:
+        regions_tsv=PAPER_REGIONS_TSV,
+    output:
+        bed=shared_path("intermediate", "30_paper_regions.bed"),
+        json=shared_path("intermediate", "30_paper_regions.json"),
+    params:
+        script="05_genome_browser_BPNet/scripts/30_build_paper_regions.py",
+        python_bin=BPNET_PYTHON,
+        window_span=WINDOW_SPAN,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --regions-tsv {input.regions_tsv} \
+            --output-bed {output.bed} \
+            --output-json {output.json} \
+            --window-span {params.window_span}
+        """
+
+
+rule r31_build_paper_contribs:
+    input:
+        h5=DEEPLIFT_H5,
+        bed=rules.r30_build_paper_regions.output.bed,
+    output:
+        ohe_npz=PAPER_CONTRIB_OHE,
+        agg_attr_npz=PAPER_CONTRIB_AGG,
+        attr_by_task=PAPER_CONTRIB_BY_TASK,
+    params:
+        script="05_genome_browser_BPNet/scripts/31_build_paper_contribs.py",
+        python_bin=BPNET_PYTHON,
+        attr_template=lambda _wildcards: shared_path(
+            "intermediate", "30_paper_contribs_{task}.attr.npz"
+        ),
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --deeplift-h5 {input.h5} \
+            --regions-bed {input.bed} \
+            --output-ohe-npz {output.ohe_npz} \
+            --output-agg-attr-npz {output.agg_attr_npz} \
+            --output-attr-template {params.attr_template}
+        """
+
+
+rule r32_genome_browser_paper:
+    input:
+        regions=rules.r30_build_paper_regions.output.json,
+        bed=rules.r30_build_paper_regions.output.bed,
+        contrib_ohe=rules.r31_build_paper_contribs.output.ohe_npz,
+        contrib_agg=rules.r31_build_paper_contribs.output.agg_attr_npz,
+        contrib_by_task=rules.r31_build_paper_contribs.output.attr_by_task,
+        tracks="05_genome_browser_BPNet/configs/30_bpnet_paper_bw_tracks.json",
+        observed_bws=OBSERVED_BWS,
+        predicted_bws=PREDICTED_BWS,
+    output:
+        main_html=output_path("30_main.html"),
+        summary_tsv=output_path("30_summary_stats.tsv"),
+        indv_plots=directory(output_path("30_indv_plots")),
+    params:
+        script="03_naive_motif_removal/scripts/09_ctcf_genome_browser.py",
+        output_dir=output_path("30_genome_browser"),
+        indv_plots_dir=output_path("30_indv_plots"),
+        workers=1,
+        title="BPNet paper genome browser (paper regions)",
+        window_span=WINDOW_SPAN,
+        output_span=OUTPUT_SPAN,
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --region-config {input.regions} \
+            --track-config {input.tracks} \
+            --output-dir {params.output_dir} \
+            --num-workers {params.workers} \
+            --title "{params.title}" \
+            --window-span {params.window_span} \
+            --output-span {params.output_span} \
+            --main-html {output.main_html} \
+            --indv-plots-dir {params.indv_plots_dir} \
+            --summary-tsv {output.summary_tsv}
+        """
