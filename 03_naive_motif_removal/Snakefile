@@ -1,0 +1,602 @@
+import csv
+import json
+import os
+from pathlib import Path
+
+from snakemake.io import directory
+
+PYTHON_BIN = os.environ.get("PYTHON_BIN", "python")
+CHROMBPNET_PYTHON = os.environ.get("CHROMBPNET_PYTHON", PYTHON_BIN)
+BPNET_PYTHON = os.environ.get("BPNET_PYTHON", PYTHON_BIN)
+
+TOP_N = 10
+WINDOW_SPAN = 2114
+DEVICE = os.environ.get("DEVICE", "cuda")
+
+EVAL_JSON = "02_train/results/01_bpnet_paper/01_bpnet_paper.evaluate.json"
+MODISCO_H5 = "02_train/results/01_bpnet_paper/01_bpnet_paper_modisco_results.h5"
+MODEL = "02_train/results/01_bpnet_paper/01_bpnet_paper.final.torch"
+ATTR_NPZ = "02_train/results/01_bpnet_paper/01_bpnet_paper.attributions.attr.npz"
+OHE_NPZ = "02_train/results/01_bpnet_paper/01_bpnet_paper.attributions.ohe.npz"
+ATTR_JSON = "02_train/results/01_bpnet_paper/01_bpnet_paper.bpnet.attribute.json"
+ATTR_IDXS = "02_train/results/01_bpnet_paper/01_bpnet_paper.attributions.idxs.npy"
+
+GENOME_FASTA = (
+    "01_download_data/raw_data/01_zenodo_3371216_data/data/"
+    "mm10_no_alt_analysis_set_ENCODE.fasta"
+)
+CHROM_SIZES = "01_download_data/raw_data/01_zenodo_3371216_data/data/mm10.chrom.sizes"
+
+
+def shared_path(*parts):
+    return str(Path("03_naive_motif_removal/shared").joinpath(*parts))
+
+
+def exp_path(exp_id, *parts):
+    return str(Path("03_naive_motif_removal/experiments") / exp_id / Path(*parts))
+
+
+def summary_path(*parts):
+    return str(Path("03_naive_motif_removal/output/30_experiment_summary").joinpath(*parts))
+
+
+def _load_experiments(path):
+    experiments = []
+    with open(path, "r") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        for row in reader:
+            contrib_val = row.get("contrib_threshold", "")
+            row["contrib_threshold"] = (
+                float(contrib_val) if contrib_val not in ("", None) else None
+            )
+            row["min_log_odds"] = float(row["min_log_odds"])
+            experiments.append(row)
+    return experiments
+
+
+def _experiments_map(path):
+    return {row["experiment_id"]: row for row in _load_experiments(path)}
+
+
+def _motif_hits_top(exp_id):
+    if EXPERIMENTS[exp_id]["contrib_threshold"] is None:
+        return exp_path(exp_id, "intermediate", "07_modisco_motif_hits_top.bed")
+    return exp_path(
+        exp_id, "intermediate", "07b_modisco_motif_hits_top_filtered.bed"
+    )
+
+
+def _motif_hits_all(exp_id):
+    if EXPERIMENTS[exp_id]["contrib_threshold"] is None:
+        return exp_path(exp_id, "intermediate", "21_test_modisco_motif_hits.bed")
+    return exp_path(exp_id, "intermediate", "21b_test_modisco_motif_hits_filtered.bed")
+
+
+def _count_loss_weight(path):
+    with open(path, "r") as handle:
+        payload = json.load(handle)
+    return payload["count_loss_weight"]
+
+
+def _load_channels(path):
+    with open(path, "r") as handle:
+        payload = json.load(handle)
+    channels = []
+    for signal_path in payload["signals"]:
+        path_obj = Path(signal_path)
+        factor = path_obj.parent.name.replace(" ", "_")
+        name = path_obj.name
+        if "pos" in name:
+            strand = "plus"
+        elif "neg" in name:
+            strand = "minus"
+        else:
+            strand = "track"
+        channels.append(f"{factor}_{strand}")
+    return channels
+
+
+CHANNELS = _load_channels(EVAL_JSON)
+
+EXPERIMENTS = _experiments_map("03_naive_motif_removal/configs/experiment_defs.tsv")
+EXPERIMENT_IDS = list(EXPERIMENTS.keys())
+
+PREDICTED_BWS = [shared_path("intermediate", f"06_predicted_{name}.bw") for name in CHANNELS]
+MOTIF_ONLY_BWS = [
+    f"03_naive_motif_removal/experiments/{{exp_id}}/intermediate/08_motif_only_{name}.bw"
+    for name in CHANNELS
+]
+
+
+rule all:
+    input:
+        summary_path("main.html"),
+
+
+rule r01_extract_modisco_meme:
+    input:
+        h5=MODISCO_H5,
+    output:
+        meme=shared_path("intermediate", "01_modisco_motifs.meme"),
+    params:
+        script="03_naive_motif_removal/scripts/01_extract_modisco_motif_meme.py",
+    shell:
+        """
+        {BPNET_PYTHON} {params.script} \
+            --modisco-h5 {input.h5} \
+            --output-meme {output.meme}
+        """
+
+
+rule r02_select_top_test_sequences:
+    input:
+        evaluate_json=EVAL_JSON,
+    output:
+        tsv=shared_path("intermediate", "02_top_random_test_sequences.tsv"),
+        npz=shared_path("intermediate", "02_top_random_test_sequences.npz"),
+    params:
+        script="03_naive_motif_removal/scripts/02_select_top_ctcf_test_sequences.py",
+        top_n=TOP_N,
+        random_n=TOP_N,
+        seed=1234,
+        chroms_json=ATTR_JSON,
+        attr_idxs=ATTR_IDXS,
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --evaluate-json {input.evaluate_json} \
+            --output-tsv {output.tsv} \
+            --output-npz {output.npz} \
+            --top-n {params.top_n} \
+            --random-n {params.random_n} \
+            --seed {params.seed} \
+            --chroms-json {params.chroms_json} \
+            --attr-idxs {params.attr_idxs}
+        """
+
+
+rule r03_subset_attributions:
+    input:
+        top_tsv=rules.r02_select_top_test_sequences.output.tsv,
+        attr_npz=ATTR_NPZ,
+        ohe_npz=OHE_NPZ,
+    output:
+        attr_npz=shared_path("intermediate", "03_top_attributions.attr.npz"),
+        ohe_npz=shared_path("intermediate", "03_top_attributions.ohe.npz"),
+    params:
+        script="03_naive_motif_removal/scripts/03_subset_ctcf_attributions.py",
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --top-tsv {input.top_tsv} \
+            --attr-npz {input.attr_npz} \
+            --ohe-npz {input.ohe_npz} \
+            --output-attr-npz {output.attr_npz} \
+            --output-ohe-npz {output.ohe_npz}
+        """
+
+
+rule r04_build_browser_regions:
+    input:
+        top_tsv=rules.r02_select_top_test_sequences.output.tsv,
+    output:
+        bed=shared_path("intermediate", "04_top_windows.bed"),
+        json=shared_path("intermediate", "04_top_regions.json"),
+    params:
+        script="03_naive_motif_removal/scripts/04_build_ctcf_browser_regions.py",
+        python_bin=BPNET_PYTHON,
+        window_span=WINDOW_SPAN,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --top-tsv {input.top_tsv} \
+            --output-bed {output.bed} \
+            --output-json {output.json} \
+            --window-span {params.window_span}
+        """
+
+
+rule r05_scan_pwm_scores:
+    input:
+        regions=rules.r04_build_browser_regions.output.bed,
+        genome=GENOME_FASTA,
+        meme=rules.r01_extract_modisco_meme.output.meme,
+        chromsizes=CHROM_SIZES,
+    output:
+        tsv=shared_path("intermediate", "05_pwm_scan_scores.tsv"),
+        bw=shared_path("intermediate", "05_pwm_scan_scores.bw"),
+    params:
+        script="03_naive_motif_removal/scripts/scan_motif_hits.py",
+        motif_id="pos_patterns.pattern_0",
+    shell:
+        """
+        {BPNET_PYTHON} {params.script} \
+            --regions-bed {input.regions} \
+            --genome-fasta {input.genome} \
+            --motif-meme {input.meme} \
+            --motif-id {params.motif_id} \
+            --chrom-sizes {input.chromsizes} \
+            --output-tsv {output.tsv} \
+            --output-bw {output.bw}
+        """
+
+
+rule r05b_contrib_window_sum:
+    input:
+        attr_npz=rules.r03_subset_attributions.output.attr_npz,
+        ohe_npz=rules.r03_subset_attributions.output.ohe_npz,
+        top_tsv=rules.r02_select_top_test_sequences.output.tsv,
+        chromsizes=CHROM_SIZES,
+    output:
+        bw=shared_path("intermediate", "05b_contrib_window_sum.bw"),
+    params:
+        script="03_naive_motif_removal/scripts/05b_contrib_window_sum.py",
+        window_span=50,
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --attr-npz {input.attr_npz} \
+            --ohe-npz {input.ohe_npz} \
+            --top-tsv {input.top_tsv} \
+            --chrom-sizes {input.chromsizes} \
+            --output-bw {output.bw} \
+            --window-span {params.window_span}
+        """
+
+
+rule r06_build_predicted_bigwigs:
+    input:
+        npz=rules.r02_select_top_test_sequences.output.npz,
+        model=MODEL,
+        chromsizes=CHROM_SIZES,
+    output:
+        bws=PREDICTED_BWS,
+    params:
+        script="03_naive_motif_removal/scripts/06_build_ctcf_predicted_bigwigs.py",
+        device=DEVICE,
+        batch_size=32,
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --input-npz {input.npz} \
+            --model {input.model} \
+            --chrom-sizes {input.chromsizes} \
+            --output-bws {output.bws} \
+            --device {params.device} \
+            --batch-size {params.batch_size}
+        """
+
+
+rule r07_scan_modisco_motifs_top:
+    input:
+        regions=rules.r04_build_browser_regions.output.bed,
+        genome=GENOME_FASTA,
+        meme=rules.r01_extract_modisco_meme.output.meme,
+    output:
+        bed=exp_path("{exp_id}", "intermediate", "07_modisco_motif_hits_top.bed"),
+    params:
+        script="03_naive_motif_removal/scripts/07_scan_modisco_motifs.py",
+        motif_id="pos_patterns.pattern_0",
+        label="modisco_pattern_0",
+        min_log_odds=lambda wc: EXPERIMENTS[wc.exp_id]["min_log_odds"],
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --regions-bed {input.regions} \
+            --genome-fasta {input.genome} \
+            --motif-meme {input.meme} \
+            --motif-id {params.motif_id} \
+            --output-bed {output.bed} \
+            --label {params.label} \
+            --min-log-odds {params.min_log_odds}
+        """
+
+
+rule r07b_filter_motif_hits_top:
+    input:
+        motif_bed=rules.r07_scan_modisco_motifs_top.output.bed,
+        regions_tsv=rules.r02_select_top_test_sequences.output.tsv,
+        attr_npz=ATTR_NPZ,
+        ohe_npz=OHE_NPZ,
+    output:
+        bed=exp_path("{exp_id}", "intermediate", "07b_modisco_motif_hits_top_filtered.bed"),
+    params:
+        script="03_naive_motif_removal/scripts/07b_filter_motif_hits_by_contrib.py",
+        window_span=WINDOW_SPAN,
+        window_sum_span=50,
+        threshold=lambda wc: EXPERIMENTS[wc.exp_id]["contrib_threshold"],
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --motif-bed {input.motif_bed} \
+            --regions-tsv {input.regions_tsv} \
+            --attr-npz {input.attr_npz} \
+            --ohe-npz {input.ohe_npz} \
+            --output-bed {output.bed} \
+            --window-span {params.window_span} \
+            --window-sum-span {params.window_sum_span} \
+            --threshold {params.threshold}
+        """
+
+
+rule r08_motif_only_loss:
+    input:
+        sequences=rules.r02_select_top_test_sequences.output.npz,
+        top_tsv=rules.r02_select_top_test_sequences.output.tsv,
+        motif_bed=lambda wc: _motif_hits_top(wc.exp_id),
+        model=MODEL,
+        evaluate_json=rules.r02_select_top_test_sequences.input.evaluate_json,
+        chromsizes=CHROM_SIZES,
+    output:
+        tsv=exp_path("{exp_id}", "intermediate", "08_motif_only_losses.tsv"),
+        bws=MOTIF_ONLY_BWS,
+    params:
+        script="03_naive_motif_removal/scripts/08_motif_only_loss.py",
+        python_bin=BPNET_PYTHON,
+        count_loss_weight=lambda wc, input: _count_loss_weight(input.evaluate_json),
+        device=DEVICE,
+        shuffle_mode=lambda wc: EXPERIMENTS[wc.exp_id]["shuffle_mode"],
+        channel_names=CHANNELS,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --input-npz {input.sequences} \
+            --top-tsv {input.top_tsv} \
+            --motif-bed {input.motif_bed} \
+            --model {input.model} \
+            --count-loss-weight {params.count_loss_weight} \
+            --output-tsv {output.tsv} \
+            --chrom-sizes {input.chromsizes} \
+            --output-bws {output.bws} \
+            --device {params.device} \
+            --shuffle-mode {params.shuffle_mode}
+        """
+
+
+rule r09b_render_track_config:
+    input:
+        template_json="03_naive_motif_removal/configs/bpnet_motif_removal_tracks.json",
+        motif_hits=lambda wc: _motif_hits_top(wc.exp_id),
+        motif_only_bws=rules.r08_motif_only_loss.output.bws,
+    output:
+        config=exp_path("{exp_id}", "configs", "bpnet_motif_removal_tracks.json"),
+    params:
+        script="03_naive_motif_removal/scripts/09b_render_track_config.py",
+        channel_names=CHANNELS,
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --template-json {input.template_json} \
+            --motif-hits-bed {input.motif_hits} \
+            --motif-only-names {params.channel_names} \
+            --motif-only-bws {input.motif_only_bws} \
+            --output-json {output.config}
+        """
+
+
+rule r09_genome_browser:
+    input:
+        regions=rules.r04_build_browser_regions.output.json,
+        bed=rules.r04_build_browser_regions.output.bed,
+        attr_npz=rules.r03_subset_attributions.output.attr_npz,
+        ohe_npz=rules.r03_subset_attributions.output.ohe_npz,
+        tracks=rules.r09b_render_track_config.output.config,
+        motif_hits=lambda wc: _motif_hits_top(wc.exp_id),
+        pwm_scores=rules.r05_scan_pwm_scores.output.bw,
+        contrib_window=rules.r05b_contrib_window_sum.output.bw,
+        predicted_bws=rules.r06_build_predicted_bigwigs.output.bws,
+        motif_only_bws=rules.r08_motif_only_loss.output.bws,
+    output:
+        main_html=exp_path("{exp_id}", "genome_browser", "09_main.html"),
+        summary_tsv=exp_path("{exp_id}", "genome_browser", "09_summary_stats.tsv"),
+        indv_plots=directory(exp_path("{exp_id}", "genome_browser", "09_indv_plots")),
+    params:
+        script="03_naive_motif_removal/scripts/09_ctcf_genome_browser.py",
+        output_dir=lambda wc: exp_path(wc.exp_id, "genome_browser", "09_genome_browser"),
+        indv_plots_dir=lambda wc: exp_path(wc.exp_id, "genome_browser", "09_indv_plots"),
+        workers=1,
+        title=lambda wc: f"BPNet motif removal ({wc.exp_id})",
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --region-config {input.regions} \
+            --track-config {input.tracks} \
+            --output-dir {params.output_dir} \
+            --num-workers {params.workers} \
+            --title \"{params.title}\" \
+            --main-html {output.main_html} \
+            --indv-plots-dir {params.indv_plots_dir} \
+            --summary-tsv {output.summary_tsv}
+        """
+
+
+rule r10_motif_removal_report:
+    input:
+        losses=rules.r08_motif_only_loss.output.tsv,
+        top_tsv=rules.r02_select_top_test_sequences.output.tsv,
+        regions=rules.r04_build_browser_regions.output.json,
+        browser_plots=rules.r09_genome_browser.output.indv_plots,
+        evaluate_json=rules.r02_select_top_test_sequences.input.evaluate_json,
+    output:
+        main_html=exp_path("{exp_id}", "output", "10_main.html"),
+        summary_tsv=exp_path("{exp_id}", "output", "10_summary_stats.tsv"),
+        indv_plots=directory(exp_path("{exp_id}", "output", "10_indv_plots")),
+    params:
+        script="03_naive_motif_removal/scripts/10_render_motif_removal_report.py",
+        python_bin=BPNET_PYTHON,
+        browser_dir=lambda wc: exp_path(wc.exp_id, "genome_browser", "09_indv_plots"),
+        output_dir=lambda wc: exp_path(wc.exp_id, "output"),
+        count_loss_weight=lambda wc, input: _count_loss_weight(input.evaluate_json),
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --loss-tsv {input.losses} \
+            --top-tsv {input.top_tsv} \
+            --region-json {input.regions} \
+            --browser-plots-dir {params.browser_dir} \
+            --output-dir {params.output_dir} \
+            --main-html {output.main_html} \
+            --summary-tsv {output.summary_tsv} \
+            --indv-plots-dir {output.indv_plots} \
+            --count-loss-weight {params.count_loss_weight}
+        """
+
+
+rule r20_extract_all_test_sequences:
+    input:
+        evaluate_json=EVAL_JSON,
+    output:
+        tsv=shared_path("intermediate", "20_test_sequences.tsv"),
+        npz=shared_path("intermediate", "20_test_sequences.npz"),
+        bed=shared_path("intermediate", "20_test_windows.bed"),
+    params:
+        script="03_naive_motif_removal/scripts/20_extract_all_test_sequences.py",
+        python_bin=BPNET_PYTHON,
+        window_span=WINDOW_SPAN,
+        chroms_json=ATTR_JSON,
+        attr_idxs=ATTR_IDXS,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --evaluate-json {input.evaluate_json} \
+            --output-tsv {output.tsv} \
+            --output-npz {output.npz} \
+            --output-bed {output.bed} \
+            --window-span {params.window_span} \
+            --chroms-json {params.chroms_json} \
+            --attr-idxs {params.attr_idxs}
+        """
+
+
+rule r21_scan_modisco_motifs_all:
+    input:
+        regions=rules.r20_extract_all_test_sequences.output.bed,
+        genome=GENOME_FASTA,
+        meme=rules.r01_extract_modisco_meme.output.meme,
+    output:
+        bed=exp_path("{exp_id}", "intermediate", "21_test_modisco_motif_hits.bed"),
+    params:
+        script="03_naive_motif_removal/scripts/07_scan_modisco_motifs.py",
+        motif_id="pos_patterns.pattern_0",
+        label="modisco_pattern_0",
+        min_log_odds=lambda wc: EXPERIMENTS[wc.exp_id]["min_log_odds"],
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --regions-bed {input.regions} \
+            --genome-fasta {input.genome} \
+            --motif-meme {input.meme} \
+            --motif-id {params.motif_id} \
+            --output-bed {output.bed} \
+            --label {params.label} \
+            --min-log-odds {params.min_log_odds}
+        """
+
+
+rule r21b_filter_motif_hits_all:
+    input:
+        motif_bed=rules.r21_scan_modisco_motifs_all.output.bed,
+        regions_tsv=rules.r20_extract_all_test_sequences.output.tsv,
+        attr_npz=ATTR_NPZ,
+        ohe_npz=OHE_NPZ,
+    output:
+        bed=exp_path("{exp_id}", "intermediate", "21b_test_modisco_motif_hits_filtered.bed"),
+    params:
+        script="03_naive_motif_removal/scripts/07b_filter_motif_hits_by_contrib.py",
+        window_span=WINDOW_SPAN,
+        window_sum_span=50,
+        threshold=lambda wc: EXPERIMENTS[wc.exp_id]["contrib_threshold"],
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --motif-bed {input.motif_bed} \
+            --regions-tsv {input.regions_tsv} \
+            --attr-npz {input.attr_npz} \
+            --ohe-npz {input.ohe_npz} \
+            --output-bed {output.bed} \
+            --window-span {params.window_span} \
+            --window-sum-span {params.window_sum_span} \
+            --threshold {params.threshold}
+        """
+
+
+rule r22_motif_only_loss_all:
+    input:
+        sequences=rules.r20_extract_all_test_sequences.output.npz,
+        regions=rules.r20_extract_all_test_sequences.output.tsv,
+        motif_bed=lambda wc: _motif_hits_all(wc.exp_id),
+        model=MODEL,
+        evaluate_json=rules.r20_extract_all_test_sequences.input.evaluate_json,
+    output:
+        tsv=exp_path("{exp_id}", "intermediate", "22_test_motif_only_losses.tsv"),
+    params:
+        script="03_naive_motif_removal/scripts/22_motif_only_loss_all.py",
+        python_bin=BPNET_PYTHON,
+        count_loss_weight=lambda wc, input: _count_loss_weight(input.evaluate_json),
+        device=DEVICE,
+        shuffle_mode=lambda wc: EXPERIMENTS[wc.exp_id]["shuffle_mode"],
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --input-npz {input.sequences} \
+            --regions-tsv {input.regions} \
+            --motif-bed {input.motif_bed} \
+            --model {input.model} \
+            --count-loss-weight {params.count_loss_weight} \
+            --output-tsv {output.tsv} \
+            --device {params.device} \
+            --shuffle-mode {params.shuffle_mode}
+        """
+
+
+rule r23_delta_histograms:
+    input:
+        losses=rules.r22_motif_only_loss_all.output.tsv,
+    output:
+        main_html=exp_path("{exp_id}", "output", "23_delta_histograms", "23_main.html"),
+        summary_tsv=exp_path("{exp_id}", "output", "23_delta_histograms", "summary_stats.tsv"),
+        table_tsv=exp_path("{exp_id}", "output", "23_delta_histograms", "delta_table.tsv"),
+        indv_plots=directory(exp_path("{exp_id}", "output", "23_delta_histograms", "indv_plots")),
+    params:
+        script="03_naive_motif_removal/scripts/23_render_delta_histograms.py",
+        python_bin=BPNET_PYTHON,
+        top_n=100,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --loss-tsv {input.losses} \
+            --main-html {output.main_html} \
+            --summary-tsv {output.summary_tsv} \
+            --table-tsv {output.table_tsv} \
+            --indv-plots-dir {output.indv_plots} \
+            --top-n {params.top_n}
+        """
+
+
+rule r30_experiment_summary:
+    input:
+        delta_tables=[
+            exp_path(exp_id, "output", "23_delta_histograms", "delta_table.tsv")
+            for exp_id in EXPERIMENT_IDS
+        ],
+        example_reports=[
+            exp_path(exp_id, "output", "10_main.html") for exp_id in EXPERIMENT_IDS
+        ],
+    output:
+        main_html=summary_path("main.html"),
+        summary_tsv=summary_path("summary_stats.tsv"),
+        indv_plots=directory(summary_path("indv_plots")),
+    params:
+        script="03_naive_motif_removal/scripts/30_render_experiment_summary.py",
+        experiment_defs="03_naive_motif_removal/configs/experiment_defs.tsv",
+        experiment_root="03_naive_motif_removal/experiments",
+        output_dir=summary_path(""),
+    shell:
+        """
+        {CHROMBPNET_PYTHON} {params.script} \
+            --experiment-defs {params.experiment_defs} \
+            --experiment-root {params.experiment_root} \
+            --output-dir {params.output_dir}
+        """

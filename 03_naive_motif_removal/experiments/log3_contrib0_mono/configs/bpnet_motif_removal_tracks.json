@@ -1,0 +1,158 @@
+{
+  "tracks": [
+    {
+      "track_name": "Oct4 observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.pos.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Oct4 observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.neg.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Oct4 predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Oct4_plus.bw"
+    },
+    {
+      "track_name": "Oct4 predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Oct4_minus.bw"
+    },
+    {
+      "track_name": "Oct4 motif-only predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Oct4_plus.bw"
+    },
+    {
+      "track_name": "Oct4 motif-only predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Oct4_minus.bw"
+    },
+    {
+      "track_name": "Sox2 observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.pos.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Sox2 observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.neg.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Sox2 predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Sox2_plus.bw"
+    },
+    {
+      "track_name": "Sox2 predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Sox2_minus.bw"
+    },
+    {
+      "track_name": "Sox2 motif-only predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Sox2_plus.bw"
+    },
+    {
+      "track_name": "Sox2 motif-only predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Sox2_minus.bw"
+    },
+    {
+      "track_name": "Nanog observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.pos.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Nanog observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.neg.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Nanog predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Nanog_plus.bw"
+    },
+    {
+      "track_name": "Nanog predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Nanog_minus.bw"
+    },
+    {
+      "track_name": "Nanog motif-only predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Nanog_plus.bw"
+    },
+    {
+      "track_name": "Nanog motif-only predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Nanog_minus.bw"
+    },
+    {
+      "track_name": "Klf4 observed (+)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.pos.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Klf4 observed (-)",
+      "file_type": "bw",
+      "file_location": "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.neg.bw",
+      "smoothing_sigma": 10
+    },
+    {
+      "track_name": "Klf4 predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Klf4_plus.bw"
+    },
+    {
+      "track_name": "Klf4 predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/06_predicted_Klf4_minus.bw"
+    },
+    {
+      "track_name": "Klf4 motif-only predicted (+)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Klf4_plus.bw"
+    },
+    {
+      "track_name": "Klf4 motif-only predicted (-)",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/08_motif_only_Klf4_minus.bw"
+    },
+    {
+      "track_name": "PWM max log-odds",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/05_pwm_scan_scores.bw",
+      "use_full_window": true
+    },
+    {
+      "track_name": "Contribution window sum",
+      "file_type": "bw",
+      "file_location": "03_naive_motif_removal/shared/intermediate/05b_contrib_window_sum.bw",
+      "use_full_window": true
+    },
+    {
+      "track_name": "Motif hits",
+      "file_type": "bed",
+      "bed_path": "03_naive_motif_removal/experiments/log3_contrib0_mono/intermediate/07b_modisco_motif_hits_top_filtered.bed"
+    },
+    {
+      "track_id": "bpnet_contrib",
+      "track_name": "BPNet contributions",
+      "file_type": "bpnet_lite_contribution",
+      "precomputed_attr_npz": "03_naive_motif_removal/shared/intermediate/03_top_attributions.attr.npz",
+      "precomputed_ohe_npz": "03_naive_motif_removal/shared/intermediate/03_top_attributions.ohe.npz",
+      "bed_path": "03_naive_motif_removal/shared/intermediate/04_top_windows.bed",
+      "shared_y_axis_scale_group": "bpnet_contrib"
+    }
+  ]
+}

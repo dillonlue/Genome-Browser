@@ -1,0 +1,19 @@
+# Snakemake outputs and intermediates
+shared/intermediate/
+experiments/*/intermediate/
+
+# Genome browser cache/log artifacts
+experiments/*/genome_browser/*/intermediate_files/
+experiments/*/genome_browser/*/processing.log
+
+# Generated outputs
+experiments/*/output/
+experiments/*/genome_browser/
+output/30_experiment_summary/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Snakemake timestamps
+*.snakemake_timestamp

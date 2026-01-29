@@ -1,0 +1,5 @@
+experiment_id	label	min_log_odds	contrib_threshold	shuffle_mode
+log5_mono	log-odds>=5 mono	5		mono
+log5_dinuc	log-odds>=5 dinuc	5		dinuc
+log3_contrib0_mono	log-odds>=3 contrib>0 mono	3	0	mono
+log3_contrib0_dinuc	log-odds>=3 contrib>0 dinuc	3	0	dinuc
