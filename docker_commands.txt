@@ -1,8 +1,13 @@
 # Rebuild the image after changing Dockerfile/dependencies
-#docker-compose build
+#docker-compose build --no-cache
 
 # Start the container in the background
 #docker-compose up -d
 
 # Enter the running container shell
 #docker exec -it shapley_masking bash
+
+# Docker can use lots of memory on computer either by keeping old images or build cache
+# to see how much memory run:
+# docker system df
+# To prune all memory run: docker system prune -af --volumes

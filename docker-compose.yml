@@ -3,6 +3,7 @@ version: "3.9"
 services:
   research:
     build: .
+    platform: linux/amd64
     container_name: shapley_masking
     tty: true
     stdin_open: true
