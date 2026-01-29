@@ -6,3 +6,9 @@ I think some genome browser regions are working though since I can reproduce plo
 Maybe genome browser was not run correctly for `05_genome_browser_BPNet/output/05_main.html` but was run correctly for `05_genome_browser_BPNet/output/30_main.html`
 1. Code trace what is working: examples from paper
 2. Make sure genome browser is being applied exactly in the same way for the regions with high signal and regions randomly selected
+
+End goal:
+1. Create a script that is 200 lines long that is a simplied version of the genome tracker; this genome tracker should just plot the 4 factor tracks predicted and observed for plus and minus strand
+2. Put this into 07_simplified_tracker
+
+
