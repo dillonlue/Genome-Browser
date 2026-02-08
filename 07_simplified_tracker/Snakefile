@@ -1,0 +1,48 @@
+import os
+from pathlib import Path
+from snakemake.io import directory
+
+PYTHON_BIN = os.environ.get("PYTHON_BIN", "python")
+BPNET_PYTHON = os.environ.get("BPNET_PYTHON", PYTHON_BIN)
+
+REGION_CONFIG = "05_genome_browser_BPNet/shared/intermediate/03_top_regions.json"
+TRACK_CONFIG = "05_genome_browser_BPNet/configs/01_bpnet_paper_tracks.json"
+OUTPUT_DIR = "07_simplified_tracker/output"
+
+
+def out_path(*parts):
+    return str(Path(OUTPUT_DIR).joinpath(*parts))
+
+
+rule all:
+    input:
+        out_path("main.html"),
+        out_path("summary_stats.tsv"),
+        out_path("indv_plots"),
+
+
+rule r01_simplified_tracker:
+    input:
+        region_config=REGION_CONFIG,
+        track_config=TRACK_CONFIG,
+    output:
+        main_html=out_path("main.html"),
+        summary_tsv=out_path("summary_stats.tsv"),
+        indv_plots=directory(out_path("indv_plots")),
+    params:
+        script="07_simplified_tracker/simplified_tracker.py",
+        output_dir=OUTPUT_DIR,
+        window_span=1000,
+        output_span=1000,
+        title="Simplified genome tracker (top regions)",
+        python_bin=BPNET_PYTHON,
+    shell:
+        """
+        {params.python_bin} {params.script} \
+            --region-config {input.region_config} \
+            --track-config {input.track_config} \
+            --output-dir {params.output_dir} \
+            --window-span {params.window_span} \
+            --output-span {params.output_span} \
+            --title "{params.title}"
+        """
