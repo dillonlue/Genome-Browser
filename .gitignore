@@ -39,6 +39,14 @@ ENV/
 # Snakemake
 .snakemake/
 
+# Large genomic data — store on external drive only
+01_download_data/raw_data/
+02_train/resources/fasta/
+data/raw/
+
+# External repo — clone from kundajelab/bpnet-manuscript if needed
+bpnet-manuscript/
+
 # LaTeX build artifacts
 project_journal/*.aux
 project_journal/*.log

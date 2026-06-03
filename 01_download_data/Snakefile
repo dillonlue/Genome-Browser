@@ -50,23 +50,41 @@ PWM_LOGO_DONE = os.path.join(PWM_LOGO_DIR, "01_logos_complete.txt")
 PWM_LOGO_SCRIPT = os.path.join("01_download_data", "scripts", "01_render_pwm_logos.py")
 
 # These Zenodo downloads cover the BPNet paper data (see papers/BPNet.txt).
+# Wrapper rule to keep a single "download all" target.
 rule _01_download_and_extract_data:
+    input:
+        DATA_TAR,
+        DATA_DIR,
+        FILES_ZIP,
+        FILES_DIR,
+
+rule _01_download_zenodo_3371216:
     output:
         data_tar=DATA_TAR,
         data_dir=directory(DATA_DIR),
+    params:
+        data_url=DATA_URL,
+        raw_dir=RAW_DATA_DIR,
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p {params.raw_dir} {output.data_dir}
+        wget -O {output.data_tar} "{params.data_url}"
+        tar -xzf {output.data_tar} -C {output.data_dir}
+        """
+
+rule _02_download_zenodo_4294904:
+    output:
         files_zip=FILES_ZIP,
         files_dir=directory(FILES_DIR),
     params:
-        data_url=DATA_URL,
         files_url=FILES_URL,
         raw_dir=RAW_DATA_DIR,
     shell:
         r"""
         set -euo pipefail
-        mkdir -p {params.raw_dir} {output.data_dir} {output.files_dir}
-        wget -O {output.data_tar} "{params.data_url}"
+        mkdir -p {params.raw_dir} {output.files_dir}
         wget -O {output.files_zip} "{params.files_url}"
-        tar -xzf {output.data_tar} -C {output.data_dir}
         unzip -q {output.files_zip} -d {output.files_dir}
         """
 

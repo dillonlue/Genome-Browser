@@ -21,20 +21,20 @@
       "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Oct4.preds.neg.bw"
     },
     {
-      "track_id": "oct4_attr_profile",
       "track_name": "Oct4 attribution (profile)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Oct4_profile.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Oct4",
+      "mode": "profile"
     },
     {
-      "track_id": "oct4_attr_counts",
       "track_name": "Oct4 attribution (counts)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Oct4_counts.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Oct4",
+      "mode": "counts"
     },
     {
       "track_name": "Sox2 observed (+)",
@@ -57,20 +57,20 @@
       "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Sox2.preds.neg.bw"
     },
     {
-      "track_id": "sox2_attr_profile",
       "track_name": "Sox2 attribution (profile)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Sox2_profile.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Sox2",
+      "mode": "profile"
     },
     {
-      "track_id": "sox2_attr_counts",
       "track_name": "Sox2 attribution (counts)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Sox2_counts.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Sox2",
+      "mode": "counts"
     },
     {
       "track_name": "Nanog observed (+)",
@@ -93,20 +93,20 @@
       "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Nanog.preds.neg.bw"
     },
     {
-      "track_id": "nanog_attr_profile",
       "track_name": "Nanog attribution (profile)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Nanog_profile.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Nanog",
+      "mode": "profile"
     },
     {
-      "track_id": "nanog_attr_counts",
       "track_name": "Nanog attribution (counts)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Nanog_counts.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Nanog",
+      "mode": "counts"
     },
     {
       "track_name": "Klf4 observed (+)",
@@ -129,20 +129,20 @@
       "file_location": "01_download_data/raw_data/02_zenodo_4294904_files/Klf4.preds.neg.bw"
     },
     {
-      "track_id": "klf4_attr_profile",
       "track_name": "Klf4 attribution (profile)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Klf4_profile.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Klf4",
+      "mode": "profile"
     },
     {
-      "track_id": "klf4_attr_counts",
       "track_name": "Klf4 attribution (counts)",
-      "file_type": "bpnet_lite_contribution",
-      "precomputed_attr_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions_Klf4_counts.attr.npz",
-      "precomputed_ohe_npz": "05_genome_browser_BPNet/shared/intermediate/02_top_attributions.ohe.npz",
-      "bed_path": "05_genome_browser_BPNet/shared/intermediate/03_top_windows.bed"
+      "file_type": "bpnet_lite_contribution_h5",
+      "deeplift_h5": "01_download_data/raw_data/02_zenodo_4294904_files/output/nexus,peaks,OSNK,0,10,1,FALSE,same,0.5,64,25,0.004,9,FALSE,[1,50],TRUE/null.deeplift.imp_score.h5",
+      "top_tsv": "05_genome_browser_BPNet/shared/intermediate/01_top_regions.tsv",
+      "task": "Klf4",
+      "mode": "counts"
     }
   ]
 }

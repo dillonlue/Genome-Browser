@@ -1,0 +1,72 @@
+{
+    "batch_size": 16,
+    "controls": [
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/patchcap/counts.pos.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/patchcap/counts.neg.bw"
+    ],
+    "count_loss_weight": null,
+    "count_output_bias": true,
+    "device": "cuda",
+    "dtype": "float32",
+    "early_stopping": 5,
+    "exclusion_lists": null,
+    "in_window": 2114,
+    "loci": [
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/merged_set/unique.training.bed.gz"
+    ],
+    "lr": 0.0001,
+    "max_counts": 99999999,
+    "max_epochs": 100,
+    "max_jitter": 128,
+    "min_counts": 0,
+    "n_filters": 64,
+    "n_layers": 9,
+    "name": "02_train/results/02_bpnet_lite/02_bpnet_lite",
+    "negative_ratio": 0.333,
+    "negatives": [
+        "02_train/results/02_bpnet_lite/02_bpnet_lite.negatives.bed"
+    ],
+    "out_window": 1000,
+    "performance_filename": "02_train/results/02_bpnet_lite/02_bpnet_lite.performance.tsv",
+    "profile_output_bias": true,
+    "random_state": null,
+    "reverse_complement": true,
+    "reverse_complement_average": true,
+    "scheduler": true,
+    "sequences": "02_train/resources/fasta/mm10_no_alt_analysis_set_ENCODE.fasta",
+    "signals": [
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.pos.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Oct4/counts.neg.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.pos.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Sox2/counts.neg.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.pos.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Nanog/counts.neg.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.pos.bw",
+        "01_download_data/raw_data/01_zenodo_3371216_data/data/chip-nexus/Klf4/counts.neg.bw"
+    ],
+    "skip": false,
+    "summits": false,
+    "training_chroms": [
+        "chr5",
+        "chr6",
+        "chr7",
+        "chr10",
+        "chr11",
+        "chr12",
+        "chr13",
+        "chr14",
+        "chr15",
+        "chr16",
+        "chr17",
+        "chr18",
+        "chr19",
+        "chrX",
+        "chrY"
+    ],
+    "validation_chroms": [
+        "chr2",
+        "chr3",
+        "chr4"
+    ],
+    "verbose": true
+}
