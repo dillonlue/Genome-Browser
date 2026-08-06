@@ -1,6 +1,6 @@
 # Mask-Aware Shapley Attribution for Transcription Factor Binding
 
-Research project on Mask-Aware Shapley attribution for BPNet, a deep learning model for transcription factor (TF) binding prediction. Developed in collaboration with Dillon Lue (Princeton Computer Science Department).
+Research project on Mask-Aware Shapley attribution for BPNet, a deep learning model for transcription factor (TF) binding prediction. Developed under the mentorship of Dillon Lue, PhD researcher in Princeton University's Department of Computer Science.
 
 BPNet is a convolutional neural network (CNN) that learns the relationship between DNA sequence and TF binding by predicting base-resolution chromatin immunoprecipitation (ChIP)-nexus binding profiles directly from genomic DNA. Current interpretability methods such as DeepLIFT and DeepSHAP use marginal and conditional distributions through baselines or background samples to substitute for absent features. These methods can however create often unrealistic DNA sequences and change bases that destroy the nature of motifs, making it impossible to separate between the importance of the motif's identity and its appearance in the DNA sequence.
 
