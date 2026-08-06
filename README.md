@@ -37,7 +37,3 @@ Output is a set of per-region plots plus an HTML index for browsing. Supporting 
 The environment can be built via Docker (`Dockerfile` / `docker-compose.yml`), which installs system dependencies (`apt-packages.txt`), the MEME suite (for `tomtom`/motif reports), and the Python stack pinned in [`requirements/base.txt`](requirements/base.txt) (PyTorch, `bpnet-lite`, `captum`, `shap`, `snakemake`, etc.).
 
 The original BPNet paper's codebase (`bpnet-manuscript`, TensorFlow 1 / Keras 2) is set up separately via [`setup_bpnet_manuscript_env.sh`](setup_bpnet_manuscript_env.sh), since it requires an older, incompatible dependency stack from the modern `bpnet-lite` training pipeline.
-
-## Status / open questions
-
-Current open questions and in-progress debugging notes are tracked in [`to_do.txt`](to_do.txt), including the ongoing investigation into why `bpnet-lite` predictions diverge from the original paper's BPNet on the genome browser outputs, and the plan to validate this using the simplified tracker.
